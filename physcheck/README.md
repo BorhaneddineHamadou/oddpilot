@@ -31,6 +31,36 @@ physcheck rules show ATM-001
 - **Reports** (`physcheck.report`): `table` (terminal), `json`, `sarif` (2.1.0, GitHub code
   scanning ready), `html` (self-contained page).
 
+## Benchmark: real-world data
+
+physcheck is evaluated on every release against an independent benchmark of
+OpenSCENARIO files derived from **real recorded driving** (inD/highD drone
+recordings, NGSIM camera data, DLR infrastructure-sensor measurements,
+naturalistic corner cases). Real scenarios are physically plausible by
+construction, so error findings on them measure the false-positive rate; the
+false-negative rate is measured on mutants of the same files, each seeded with
+one certainly-impossible violation (sun above the zenith, 0-dimension bounding
+boxes, spawns 2 km off the map, ...).
+
+**physcheck 0.2.0:**
+
+| Corpus (real data) | Files | Tool false positives | Specificity | Conversion-artifact findings¹ | Seeded mutants | Detected | Sensitivity |
+|---|---|---|---|---|---|---|---|
+| corner_case_ndd | 25 | 0 | 100.0% | 0 | 76 | 76 | 100.0% |
+| dlr_ht | 1 | 0 | 100.0% | 0 | — | — | — |
+| dlr_ut | 4 | 0 | 100.0% | 0 | — | — | — |
+| sctrans_real | 1079 | 0 | 100.0% | 1079 files | 1545 | 1545 | 100.0% |
+
+¹ Error findings manually verified as TRUE defects of the corpus's conversion
+pipeline — CARLA template metadata (maxAcceleration = 200 m/s², copy-pasted
+suns, 5×2 m pedestrian bounding boxes) and under-covering converted maps —
+not tool mistakes. Per-finding triage evidence, corpora provenance and the
+full protocol live in the benchmark repo
+([physcheck-benchmark](https://github.com/BorhaneddineHamadou/physcheck-benchmark)).
+The benchmark's first catch was in physcheck itself: SCTrans's wrong-case
+`<OpenScenario>` root made the parser abort before the physics layers
+(fixed in 0.2.0).
+
 ## Rule YAML schema
 
 ```yaml
