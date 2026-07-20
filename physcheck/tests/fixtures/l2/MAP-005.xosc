@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="4.6 m cars 2.5 m apart: bounding boxes overlap" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="../maps/tiny.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="ego_model" vehicleCategory="car" mass="1600">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="5" maxDeceleration="9"/>
+      </Vehicle>
+    </ScenarioObject>
+    <ScenarioObject name="npc">
+      <Vehicle name="npc_model" vehicleCategory="car" mass="1600">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="5" maxDeceleration="9"/>
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      <Private entityRef="ego">
+        <PrivateAction><TeleportAction><Position><WorldPosition x="10.0" y="-1.75" z="0" h="0.0"/></Position></TeleportAction></PrivateAction>
+      </Private>
+      <Private entityRef="npc">
+        <PrivateAction><TeleportAction><Position><WorldPosition x="12.5" y="-1.75" z="0" h="0.0"/></Position></TeleportAction></PrivateAction>
+      </Private>
+      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>

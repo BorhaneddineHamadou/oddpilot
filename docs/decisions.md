@@ -125,3 +125,66 @@ non-increasing in wetness severity across a scenario's environment states) needs
 environment states at once, which the per-context YAML engine cannot express; it ships
 as the first L1 plugin rule (`physcheck.engine.plugins.l1_cross`), with plugin metadata
 unified across layers so `rules list/show` covers it.
+
+**D21 — OpenDRIVE geometry by sampling (`physcheck.xodr`).** Reference lines (line,
+arc, spiral, poly3, paramPoly3) are sampled at ~0.5 m (spirals/polys integrated at
+≤0.25 m then thinned); world→road projection is nearest-sample; poly3-family s-values
+are chord-length approximations. Positional error is centimetre-level — far below the
+half-lane-width tolerances any L2 rule uses. Elevation profiles, superelevation and
+lateral shape records are NOT modelled: all checks are planar, and `z` is ignored
+except where noted (D27). Speed records: `max` with units m/s ("m/s"/"ms"), km/h, mph;
+"no limit"/"undefined" mean no record.
+
+**D22 — Route connectivity is direction-agnostic (MAP-006).** The road graph joins
+road↔road links plus junction (incomingRoad, connectingRoad) pairs, undirected; a route
+is flagged only when NO path exists between consecutive waypoints' roads. Modelling
+travel direction (lane sign, contactPoint) would catch wrong-way routes but risks false
+positives on unusual junctions; existence-of-path errs on the safe side — what it
+flags (typically waypoints on a disconnected road or the wrong map) is indefensible.
+
+**D23 — Drivable lane types (MAP-004).** Motor vehicles: driving, exit, entry, onRamp,
+offRamp, connectingRamp, slipLane, bus, taxi, HOV, mwyEntry, mwyExit (OpenDRIVE 1.4-1.8
+vocabularies merged), plus parking and stop (legitimate spawn locations). Bicycles
+additionally: biking, shoulder, border, sidewalk, walking — cyclists plausibly stage on
+sidewalks in crossing scenarios (srunner CyclistCrossing). Pedestrians and misc objects
+are never spawn-checked (a pedestrian on a driving lane is the scenario's point).
+A WorldPosition is checked against every road whose reference line passes within 25 m;
+the spawn is accepted if ANY overlapping road offers an allowed lane (junction overlaps).
+When the point is off-lane but its y-mirror lies on an allowed lane, the finding notes
+that the scenario appears to use CARLA's left-handed frame instead of the OpenDRIVE
+inertial frame ASAM OpenSCENARIO mandates (all 13 srunner MAP-004 findings are of this
+class) — still an error: such scenarios are not portable across engines.
+
+**D24 — Speed-vs-limit slack (MAP-007).** Warning only when the maximum commanded
+absolute speed exceeds 110% of the road-type speed record at the spawn point —
+tolerating mild overshoot and flagging only clear unintentional speeding (the esmini
+hit commands 216% of the limit). Deliberate speeding scenarios should carry the speed
+as an explicit parameter, which linting surfaces for review either way.
+
+**D25 — solar_geo interpretation (GEO-001…006).** The map's `geoReference`
+(+lat_0/+lon_0) is taken at face value as the scenario's geodetic anchor — CARLA towns
+declare (0°, 0°), so their suns are judged at Null Island; that is a statement the
+scenario+map pair actually makes. In-map position offsets are ignored (town-scale maps
+move the sun <0.1°). Naive dateTimes are tried as {UTC, local standard = round(lon/15),
+local DST = +1 h} and the minimum discrepancy is scored (D5); tz-aware dateTimes are
+taken literally. Tolerances 0.7° warning / 5° error (refraction-dominated, per
+catalog_report §Solar). When both declared and computed sun are below the horizon the
+ephemeris check passes (night is night; exact below-horizon position is irrelevant).
+Ephemeris: NOAA/Meeus chain in `physcheck.ephemeris`, ~0.01° in 1900-2100, validated
+against the NOAA calculator in tests.
+
+**D26 — L2 map resolution.** `--map FILE` applies one map to all files and implies
+layer L2; without `--map`, each scenario's `RoadNetwork/LogicFile` (now
+parameter-resolved — ALKS uses `$Road`) is tried relative to the scenario directory,
+with per-run caching. Files with no resolvable map skip L2 with a stderr note — never
+an error, since suites routinely mix mapped and unmapped scenarios (srunner references
+engine-internal "Town01" with no file).
+
+**D27 — Interpenetration scope (MAP-005).** Planar oriented-bbox (length×width)
+separating-axis test over Init teleport poses; WorldPosition headings default to 0 when
+`h` is absent, bbox Center offsets are ignored. Pairs linked by a Relative* init
+position are exempt — that is the attachment idiom (esmini drop-bike mounts a bike on
+a car via RelativeObjectPosition). Entities placed at the SAME absolute pose remain
+flagged (esmini trailers.xosc stacks tractor+trailers; the hitch coupling that
+un-overlaps them is engine-side, invisible at OSC level — physically impossible as
+declared, cf. the engine-coupling vacuity discussion in catalog_report).

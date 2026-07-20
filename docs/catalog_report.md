@@ -90,17 +90,19 @@ Spencer (1971) declination series.
 Key decisions:
 - OSC 1.x does not define the timezone of `TimeOfDay@dateTime` and `.xosc` carries no
   geodetic position (that lives in the OpenDRIVE `geoReference`, an L2 input). All
-  **location-dependent** consistency rules are therefore documented here but deferred:
-  declination-bound check sin δ = sin φ sin h + cos φ cos h cos A with |δ| ≤ 23.44°
-  (date-free!), max-elevation bound h ≤ 90° − max(0, |φ| − 23.44°), full
-  elevation/azimuth-vs-ephemeris checks with min-over-{UTC, local±DST} interpretation and
-  0.7° warning / 5° error tolerances, noon-azimuth and midnight-sun checks. These form the
-  planned `solar_geo` L2 pack; the pure-Python Meeus/NOAA algorithm chain (Julian day →
-  solar coordinates → equation of time → hour angle → elevation/azimuth, with Saemundsson/
-  Bennett refraction) is specified in the research notes and is implementable without
-  dependencies (accuracy 0.01°, far tighter than the 0.57° refraction-dominated
-  tolerance; the full ~2300-line NREL SPA is unnecessary — cited as the cross-validation
-  standard).
+  **location-dependent** consistency rules were therefore deferred in v0.1 and **ship in
+  v0.2 as the `solar_geo` L2 plugin pack (GEO-001…006)**: declination-bound check
+  sin δ = sin φ sin h + cos φ cos h cos A with |δ| ≤ 23.44° (date-free!, GEO-001/002),
+  max-elevation bound h ≤ 90° − max(0, |φ| − 23.44°) when azimuth is undeclared
+  (GEO-003/004), full elevation/azimuth-vs-ephemeris checks with min-over-{UTC,
+  local±DST} interpretation and 0.7° warning / 5° error tolerances (GEO-005/006;
+  noon-azimuth and midnight-sun checks are subsumed). The pure-Python Meeus/NOAA
+  algorithm chain (Julian day → solar coordinates → equation of time → hour angle →
+  elevation/azimuth, with Saemundsson refraction) is implemented dependency-free in
+  `physcheck.ephemeris` (accuracy ~0.01°, far tighter than the 0.57°
+  refraction-dominated tolerance; the full ~2300-line NREL SPA is unnecessary — the
+  NOAA calculator is the cross-validation standard used in the tests). Interpretation
+  details: decisions.md D25.
 - SOL-007/008 (night-hours checks) assume `dateTime` ≈ local time and are warnings only
   (decisions.md D5).
 - The sun-illuminance ceiling uses the luminous solar constant (133.8 klx, error) plus a
@@ -301,16 +303,16 @@ structure, not the attribute view.
 
 ## Cross-cutting: not encodable in v0.1 (roadmap)
 
-| Candidate | Needs | Target layer |
-|---|---|---|
-| Solar ephemeris consistency (elevation/azimuth vs dateTime+lat/lon) | OpenDRIVE geoReference | L2 (`solar_geo` pack) |
-| Declination bound sin δ from (φ, h, A) | geoReference | L2 |
-| Friction circle v² ≤ μgr over route curvature | OpenDRIVE geometry | L3 |
-| Lane-change lateral acceleration with true lane width | OpenDRIVE lanes | L3 |
-| Comfort vs emergency braking classification (ISO 15622 ≤ 3.5 m/s²) | storyboard intent analysis | L4 |
-| Wetness/friction monotonicity across multiple environments | cross-context engine support | L1 (engine v0.2) |
-| RH/dew-point/LWC/extinction closures | attributes absent from OSC 1.x | format extension |
-| Simulator-coupling vacuity (e.g. CARLA weather is rendering-only; precipitation ≠ wet road; esmini ignores wetness) | simulator-profile packs | L6/profiles |
+| Candidate | Needs | Target layer | Status |
+|---|---|---|---|
+| Solar ephemeris consistency (elevation/azimuth vs dateTime+lat/lon) | OpenDRIVE geoReference | L2 (`solar_geo` pack) | **shipped v0.2** (GEO-005/006) |
+| Declination bound sin δ from (φ, h, A) | geoReference | L2 | **shipped v0.2** (GEO-001…004) |
+| Friction circle v² ≤ μgr over route curvature | OpenDRIVE geometry | L3 | open (geometry now available) |
+| Lane-change lateral acceleration with true lane width | OpenDRIVE lanes | L3 | open (lane widths now available) |
+| Comfort vs emergency braking classification (ISO 15622 ≤ 3.5 m/s²) | storyboard intent analysis | L4 | open |
+| Wetness/friction monotonicity across multiple environments | cross-context engine support | L1 (engine v0.2) | **shipped v0.1.0** (FRI-024) |
+| RH/dew-point/LWC/extinction closures | attributes absent from OSC 1.x | format extension | open |
+| Simulator-coupling vacuity (e.g. CARLA weather is rendering-only; precipitation ≠ wet road; esmini ignores wetness) | simulator-profile packs | L6/profiles | open |
 
 The simulator research stream (CARLA, esmini, SVL, BeamNG) also documented decoupling
 traps that motivate *profile* rule packs: CARLA's `precipitation`,

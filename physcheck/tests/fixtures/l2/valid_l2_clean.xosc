@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="consistent with tiny.xodr: on-lane, spaced, connected, legal, real sun" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="../maps/tiny.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="ego_model" vehicleCategory="car" mass="1600">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="5" maxDeceleration="9"/>
+      </Vehicle>
+    </ScenarioObject>
+    <ScenarioObject name="npc">
+      <Vehicle name="npc_model" vehicleCategory="car" mass="1600">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="5" maxDeceleration="9"/>
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      <GlobalAction>
+      <EnvironmentAction>
+        <Environment name="Env">
+        <TimeOfDay animation="false" dateTime="2026-06-21T14:00:00"/>
+        <Weather fractionalCloudCover="oneOktas" temperature="295.15" atmosphericPressure="101300">
+          <Sun azimuth="3.4176" elevation="1.113" illuminance="95000"/>
+          <Precipitation precipitationType="dry" precipitationIntensity="0"/>
+        </Weather>
+        <RoadCondition frictionScaleFactor="1.0" wetness="dry"/>
+        </Environment>
+      </EnvironmentAction>
+      </GlobalAction>
+      <Private entityRef="ego">
+        <PrivateAction><TeleportAction><Position><LanePosition roadId="1" laneId="-1" s="20" offset="0"/></Position></TeleportAction></PrivateAction>
+        <PrivateAction><SpeedAction><SpeedActionDynamics dynamicsShape="linear" value="1" dynamicsDimension="time"/><SpeedActionTarget><AbsoluteTargetSpeed value="12"/></SpeedActionTarget></SpeedAction></PrivateAction>
+        <PrivateAction><RoutingAction><AssignRouteAction><Route name="r" closed="false"><Waypoint routeStrategy="shortest"><Position><LanePosition roadId="1" laneId="-1" s="80" offset="0"/></Position></Waypoint><Waypoint routeStrategy="shortest"><Position><LanePosition roadId="3" laneId="-1" s="10" offset="0"/></Position></Waypoint></Route></AssignRouteAction></RoutingAction></PrivateAction>
+      </Private>
+      <Private entityRef="npc">
+        <PrivateAction><TeleportAction><Position><LanePosition roadId="1" laneId="-1" s="60" offset="0"/></Position></TeleportAction></PrivateAction>
+      </Private>
+      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>

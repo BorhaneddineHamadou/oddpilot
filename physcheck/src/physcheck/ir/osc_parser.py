@@ -22,8 +22,11 @@ from physcheck.ir.model import (
     LaneChange,
     ParseIssue,
     Performance,
+    Position,
+    PositionUse,
     Precipitation,
     RoadCondition,
+    RouteAssignment,
     Scenario,
     SpeedCommand,
     Sun,
@@ -205,7 +208,9 @@ def parse_string(text: str, source_path: str = "<string>") -> Scenario:
 
     logic = root.find("RoadNetwork/LogicFile")
     if logic is not None:
-        sc.road_network_logic_file = logic.get("filepath")
+        sc.road_network_logic_file = ctx.resolve(
+            logic.get("filepath"), "RoadNetwork/LogicFile@filepath"
+        )
 
     base_dir = Path(source_path).parent if source_path != "<string>" else None
     if base_dir is not None:
@@ -366,6 +371,16 @@ def _parse_storyboard(storyboard: ET.Element, ctx: _Ctx) -> None:
                     entity = _find_entity(sc, ref)
                     if entity is not None and cmd.target_speed_mps is not None:
                         entity.initial_speed_mps = cmd.target_speed_mps
+            for teleport in private.iter("TeleportAction"):
+                pos = _parse_position(teleport.find("Position"), ctx, "Init/TeleportAction")
+                if pos is not None:
+                    sc.position_uses.append(
+                        PositionUse(position=pos, entity=ref, label="Init", is_init=True)
+                    )
+                    entity = _find_entity(sc, ref)
+                    if entity is not None and entity.initial_position is None:
+                        entity.initial_position = pos
+            _parse_routing_actions(private, ref, "Init", ctx)
 
     for story in storyboard.findall("Story"):
         story_name = story.get("name", "")
@@ -389,6 +404,14 @@ def _parse_storyboard(storyboard: ET.Element, ctx: _Ctx) -> None:
                 env = _parse_environment_action(env_action, ctx, label=label)
                 if env is not None:
                     sc.environments.append(env)
+            for teleport in group.iter("TeleportAction"):
+                pos = _parse_position(teleport.find("Position"), ctx, f"{label}/TeleportAction")
+                if pos is not None:
+                    for actor in actors or [""]:
+                        sc.position_uses.append(
+                            PositionUse(position=pos, entity=actor, label=label)
+                        )
+            _parse_routing_actions(group, actors[0] if actors else "", label, ctx)
 
 
 def _find_entity(sc: Scenario, name: str) -> Entity | None:
@@ -431,6 +454,76 @@ def _parse_lane_change(
     if dim == "distance":
         return LaneChange(entity=entity, distance_m=value, label=label)
     return None
+
+
+#: Position child tag -> Position.kind.
+_POSITION_KINDS = {
+    "WorldPosition": "world",
+    "RelativeWorldPosition": "relative_world",
+    "RelativeObjectPosition": "relative_object",
+    "RoadPosition": "road",
+    "RelativeRoadPosition": "relative_road",
+    "LanePosition": "lane",
+    "RelativeLanePosition": "relative_lane",
+    "RoutePosition": "route",
+    "TrajectoryPosition": "trajectory",
+    "GeoPosition": "geo",
+}
+
+
+def _parse_position(elem: ET.Element | None, ctx: _Ctx, where: str) -> Position | None:
+    if elem is None:
+        return None
+    for child in elem:
+        kind = _POSITION_KINDS.get(child.tag)
+        if kind is None:
+            continue
+        pos = Position(kind=kind)
+        if kind == "world":
+            pos.x = ctx.get_float(child, "x", where)
+            pos.y = ctx.get_float(child, "y", where)
+            pos.z = ctx.get_float(child, "z", where)
+            pos.h = ctx.get_float(child, "h", where)
+        elif kind in ("road", "relative_road"):
+            pos.road_id = ctx.get_str(child, "roadId", where)
+            pos.s = ctx.get_float(child, "s", where) if kind == "road" else None
+            pos.t_or_offset = ctx.get_float(child, "t", where)
+            pos.entity_ref = ctx.get_str(child, "entityRef", where)
+        elif kind in ("lane", "relative_lane"):
+            pos.road_id = ctx.get_str(child, "roadId", where)
+            pos.lane_id = ctx.get_str(child, "laneId", where)
+            pos.s = ctx.get_float(child, "s", where) if kind == "lane" else None
+            pos.t_or_offset = ctx.get_float(child, "offset", where)
+            pos.entity_ref = ctx.get_str(child, "entityRef", where)
+        elif kind in ("relative_world", "relative_object"):
+            pos.entity_ref = ctx.get_str(child, "entityRef", where)
+            pos.dx = ctx.get_float(child, "dx", where)
+            pos.dy = ctx.get_float(child, "dy", where)
+        return pos
+    return Position(kind="other") if len(elem) else None
+
+
+def _parse_routing_actions(container: ET.Element, entity: str, label: str, ctx: _Ctx) -> None:
+    """Collect AssignRouteAction / AcquirePositionAction routes and waypoints."""
+    sc = ctx.scenario
+    for assign in container.iter("AssignRouteAction"):
+        route_elem = assign.find("Route")
+        if route_elem is None:
+            continue  # CatalogReference routes are not resolved (routes are rare in catalogs)
+        route = RouteAssignment(entity=entity, label=f"{label}/AssignRouteAction")
+        for waypoint in route_elem.findall("Waypoint"):
+            pos = _parse_position(waypoint.find("Position"), ctx, route.label)
+            if pos is not None:
+                route.waypoints.append(pos)
+                sc.position_uses.append(PositionUse(position=pos, entity=entity, label=route.label))
+        if route.waypoints:
+            sc.routes.append(route)
+    for acquire in container.iter("AcquirePositionAction"):
+        pos = _parse_position(acquire.find("Position"), ctx, f"{label}/AcquirePositionAction")
+        if pos is not None:
+            sc.position_uses.append(
+                PositionUse(position=pos, entity=entity, label=f"{label}/AcquirePositionAction")
+            )
 
 
 def _parse_environment_action(action: ET.Element, ctx: _Ctx, label: str) -> Environment | None:

@@ -23,7 +23,7 @@ This is a monorepo hosting two Python distributions:
 
 | Package | Status | Contents |
 |---|---|---|
-| [`physcheck/`](physcheck/) | **v0.1 — implemented** | Standalone layered plausibility linter for ASAM OpenSCENARIO 1.x: typed Scenario IR, YAML rule catalog with full literature citations, `lint` / `rules` CLI, SARIF/HTML/JSON output. |
+| [`physcheck/`](physcheck/) | **v0.2 — implemented** | Standalone layered plausibility linter for ASAM OpenSCENARIO 1.x: typed Scenario IR, YAML rule catalog with full literature citations, OpenDRIVE map cross-checks (L2) incl. solar ephemeris, `lint` / `rules` CLI, SARIF/HTML/JSON output. |
 | [`odd-pilot/`](odd-pilot/) | skeleton stub | Campaign copilot (operational model, PWCC coverage & adequacy, gap-targeted generation, reporting, loop orchestration). Depends on `physcheck`. |
 
 ## Quick start (physcheck)
@@ -32,6 +32,8 @@ This is a monorepo hosting two Python distributions:
 pip install -e physcheck/
 
 physcheck lint examples/                     # lint a directory of .xosc files (layers L0–L1)
+physcheck lint suite/ --map town04.xodr      # enable L2 map cross-checks + solar_geo
+physcheck lint suite/ --layers L0,L1,L2      # L2 via each scenario's RoadNetwork/LogicFile
 physcheck lint s.xosc --format sarif -o l.sarif   # CI-ready output
 physcheck lint suite/ --fail-on error        # exit 1 on any error → CI quality gate
 physcheck lint s.xosc --explain ATM-001      # rule text, citation, offending values
@@ -62,11 +64,11 @@ road-user biomechanics, regulations). The research behind it is documented in:
 
 ## Layers
 
-| Layer | Content | v0.1 |
+| Layer | Content | Status |
 |---|---|---|
-| L0 | Schema & ranges: XML/OSC validity, unit sanity, enum membership, dangling references | ✅ |
-| L1 | Environmental & physical rules (researched, cited catalog) | ✅ |
-| L2 | Map cross-checks (OpenDRIVE) | roadmap |
+| L0 | Schema & ranges: XML/OSC validity, unit sanity, enum membership, dangling references | ✅ v0.1 |
+| L1 | Environmental & physical rules (researched, cited catalog) | ✅ v0.1 |
+| L2 | Map cross-checks (OpenDRIVE: roads/lanes exist, drivable spawns, interpenetration, route connectivity, speed limits) + `solar_geo` ephemeris pack | ✅ v0.2 |
 | L3 | Kinematic & dynamic feasibility (map-dependent parts) | roadmap |
 | L4 | Storyboard logic (static analysis) | roadmap |
 | L5 | ODD conformance (ASAM OpenODD) | roadmap |

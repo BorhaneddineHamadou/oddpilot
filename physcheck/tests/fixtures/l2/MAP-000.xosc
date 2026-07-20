@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="map with parse problems" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="../maps/broken.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="ego_model" vehicleCategory="car" mass="1600">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="5" maxDeceleration="9"/>
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      <Private entityRef="ego">
+        <PrivateAction><TeleportAction><Position><LanePosition roadId="1" laneId="-1" s="10" offset="0"/></Position></TeleportAction></PrivateAction>
+      </Private>
+      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>

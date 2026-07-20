@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tiny hand-written test map.
+
+     Layout (all roads run east, hdg=0, y=0 unless noted):
+       road 1 [x 0..100]  - successor road 2, 50 km/h speed limit
+       road 2 [x 100..150] - successor junction 10
+       road 20 [x 150..160] - connecting road inside junction 10 (road 2 -> road 3)
+       road 3 [x 160..240]
+       road 99 [y=500] - intentionally disconnected from everything
+     Lanes on every road: 1=driving(3.5m) 2=sidewalk(2m) left,
+     -1=driving(3.5m) -2=sidewalk(2m) right.
+-->
+<OpenDRIVE>
+  <header revMajor="1" revMinor="4" name="tiny" north="600" south="-10" east="250" west="-10">
+    <geoReference><![CDATA[+proj=tmerc +lat_0=48.9917 +lon_0=8.0019 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs]]></geoReference>
+  </header>
+  <road name="MainWest" length="100.0" id="1" junction="-1">
+    <link>
+      <successor elementType="road" elementId="2" contactPoint="start"/>
+    </link>
+    <type s="0.0" type="town">
+      <speed max="50" unit="km/h"/>
+    </type>
+    <planView>
+      <geometry s="0.0" x="0.0" y="0.0" hdg="0.0" length="100.0">
+        <line/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0.0">
+        <left>
+          <lane id="2" type="sidewalk" level="false">
+            <width sOffset="0.0" a="2.0" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+          <lane id="1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </left>
+        <center>
+          <lane id="0" type="none" level="false"/>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+          <lane id="-2" type="sidewalk" level="false">
+            <width sOffset="0.0" a="2.0" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="MainEast" length="50.0" id="2" junction="-1">
+    <link>
+      <predecessor elementType="road" elementId="1" contactPoint="end"/>
+      <successor elementType="junction" elementId="10"/>
+    </link>
+    <planView>
+      <geometry s="0.0" x="100.0" y="0.0" hdg="0.0" length="50.0">
+        <line/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0.0">
+        <left>
+          <lane id="2" type="sidewalk" level="false">
+            <width sOffset="0.0" a="2.0" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+          <lane id="1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </left>
+        <center>
+          <lane id="0" type="none" level="false"/>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+          <lane id="-2" type="sidewalk" level="false">
+            <width sOffset="0.0" a="2.0" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="Connecting" length="10.0" id="20" junction="10">
+    <link>
+      <predecessor elementType="road" elementId="2" contactPoint="end"/>
+      <successor elementType="road" elementId="3" contactPoint="start"/>
+    </link>
+    <planView>
+      <geometry s="0.0" x="150.0" y="0.0" hdg="0.0" length="10.0">
+        <line/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0.0">
+        <center>
+          <lane id="0" type="none" level="false"/>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="FarEast" length="80.0" id="3" junction="-1">
+    <link>
+      <predecessor elementType="junction" elementId="10"/>
+    </link>
+    <planView>
+      <geometry s="0.0" x="160.0" y="0.0" hdg="0.0" length="80.0">
+        <line/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0.0">
+        <left>
+          <lane id="1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </left>
+        <center>
+          <lane id="0" type="none" level="false"/>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <road name="Island" length="60.0" id="99" junction="-1">
+    <planView>
+      <geometry s="0.0" x="0.0" y="500.0" hdg="0.0" length="60.0">
+        <line/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0.0">
+        <center>
+          <lane id="0" type="none" level="false"/>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+  <junction id="10" name="J10">
+    <connection id="0" incomingRoad="2" connectingRoad="20" contactPoint="start">
+      <laneLink from="-1" to="-1"/>
+    </connection>
+  </junction>
+</OpenDRIVE>

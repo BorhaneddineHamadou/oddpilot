@@ -24,8 +24,10 @@ from physcheck import __version__
 from physcheck.engine.catalog import RuleSpec, load_default_packs, load_pack
 from physcheck.engine.engine import SEVERITY_ORDER, Finding, LintResult, lint_scenario
 from physcheck.engine.plugins import PLUGIN_RULES
+from physcheck.ir.model import Scenario
 from physcheck.ir.osc_parser import parse_file
 from physcheck.report.formats import render_report
+from physcheck.xodr import XodrMap, load_map
 
 __all__ = ["entrypoint", "main"]
 
@@ -48,7 +50,12 @@ def _build_parser() -> _Parser:
 
     lint = sub.add_parser("lint", help="lint OpenSCENARIO files or directories")
     lint.add_argument("paths", nargs="+", help=".xosc files or directories")
-    lint.add_argument("--map", dest="map_file", help="OpenDRIVE map (L2, not in v0.1)")
+    lint.add_argument(
+        "--map",
+        dest="map_file",
+        help="OpenDRIVE map for L2 cross-checks (enables L2; without --map, L2 "
+        "resolves each scenario's RoadNetwork/LogicFile)",
+    )
     lint.add_argument("--odd", dest="odd_file", help="OpenODD definition (L5, not in v0.1)")
     lint.add_argument("--rules", action="append", default=[], help="additional rule pack YAML")
     lint.add_argument("--layers", default=_DEFAULT_LAYERS, help="comma list (default L0,L1)")
@@ -104,25 +111,28 @@ def _collect_files(paths: list[str]) -> list[Path] | None:
 
 
 def _cmd_lint(args: argparse.Namespace) -> int:
-    notes = ((args.map_file, "L2 map cross-checks"), (args.odd_file, "L5 ODD conformance"))
-    for flag, layer in notes:
-        if flag:
-            print(
-                f"physcheck: note: {layer} are not implemented in v0.1; ignoring",
-                file=sys.stderr,
-            )
+    if args.odd_file:
+        print(
+            "physcheck: note: L5 ODD conformance is not implemented yet; ignoring",
+            file=sys.stderr,
+        )
 
     layers = {part.strip() for part in args.layers.split(",") if part.strip()}
+    if args.map_file:
+        layers.add("L2")
     unknown = layers - {f"L{i}" for i in range(7)}
     if unknown:
         print(f"physcheck: unknown layers: {sorted(unknown)}", file=sys.stderr)
         return 3
-    not_shipped = layers - {"L0", "L1"}
+    not_shipped = layers - {"L0", "L1", "L2"}
     if not_shipped:
         print(
-            f"physcheck: note: layers {sorted(not_shipped)} have no rules in v0.1",
+            f"physcheck: note: layers {sorted(not_shipped)} have no rules yet",
             file=sys.stderr,
         )
+    if args.map_file and not Path(args.map_file).is_file():
+        print(f"physcheck: map not found: {args.map_file}", file=sys.stderr)
+        return 3
 
     rules, pack_errors = _load_rules(args.rules)
     if pack_errors:
@@ -138,9 +148,22 @@ def _cmd_lint(args: argparse.Namespace) -> int:
         return 3
 
     results: list[LintResult] = []
+    map_cache: dict[str, XodrMap | None] = {}
+    unmapped = 0
     for path in files:
         scenario = parse_file(path)
-        results.append(lint_scenario(scenario, rules, layers))
+        xodr_map = None
+        if "L2" in layers:
+            xodr_map = _map_for(scenario, path, args.map_file, map_cache)
+            if xodr_map is None:
+                unmapped += 1
+        results.append(lint_scenario(scenario, rules, layers, xodr_map=xodr_map))
+    if unmapped:
+        print(
+            f"physcheck: note: L2 skipped for {unmapped} file(s) with no resolvable "
+            "OpenDRIVE map (pass --map or declare RoadNetwork/LogicFile)",
+            file=sys.stderr,
+        )
 
     threshold = SEVERITY_ORDER[args.severity]
     all_findings = [f for r in results for f in r.findings]
@@ -176,6 +199,25 @@ def _cmd_lint(args: argparse.Namespace) -> int:
         if any(SEVERITY_ORDER[f.severity] >= fail_threshold for f in all_findings):
             return 1
     return 0
+
+
+def _map_for(
+    scenario: Scenario,
+    scenario_path: Path,
+    map_flag: str | None,
+    cache: dict[str, XodrMap | None],
+) -> XodrMap | None:
+    """The OpenDRIVE map for one scenario: --map flag, else RoadNetwork/LogicFile."""
+    if map_flag:
+        candidate = Path(map_flag)
+    elif scenario.road_network_logic_file:
+        candidate = scenario_path.parent / scenario.road_network_logic_file
+    else:
+        return None
+    key = str(candidate.resolve())
+    if key not in cache:
+        cache[key] = load_map(candidate) if candidate.is_file() else None
+    return cache[key]
 
 
 def _explain(rule_id: str, findings: list[Finding], rules: list[RuleSpec]) -> None:

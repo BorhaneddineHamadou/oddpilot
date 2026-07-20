@@ -8,9 +8,12 @@ from dataclasses import dataclass, field
 from physcheck.engine.catalog import RuleSpec
 from physcheck.engine.plugins.l0_structure import structural_findings
 from physcheck.engine.plugins.l1_cross import cross_findings
+from physcheck.engine.plugins.l2_map import map_findings
+from physcheck.engine.plugins.l2_solar_geo import solar_geo_findings
 from physcheck.engine.predicate import MissingAttribute, PredicateError
 from physcheck.ir.attributes import Attrs, entity_contexts, scenario_contexts
 from physcheck.ir.model import Scenario
+from physcheck.xodr.model import XodrMap
 
 __all__ = ["SEVERITY_ORDER", "Finding", "LintResult", "lint_scenario"]
 
@@ -60,6 +63,7 @@ def lint_scenario(
     scenario: Scenario,
     rules: list[RuleSpec],
     layers: set[str],
+    xodr_map: XodrMap | None = None,
 ) -> LintResult:
     result = LintResult(file=scenario.source_path, document_kind=scenario.document_kind)
     if "L0" in layers:
@@ -68,6 +72,9 @@ def lint_scenario(
         return result
     if "L1" in layers:
         result.findings.extend(cross_findings(scenario))
+    if "L2" in layers and xodr_map is not None:
+        result.findings.extend(map_findings(scenario, xodr_map))
+        result.findings.extend(solar_geo_findings(scenario, xodr_map))
 
     active = [r for r in rules if r.layer in layers]
     contexts_by_scope = {

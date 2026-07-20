@@ -146,3 +146,31 @@ rules:
                  "--severity", "info"]) == 0
     out = capsys.readouterr().out
     assert "CUST-100" in out
+
+
+def test_lint_l2_with_map_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    scenario = str(FIXTURES / "l2" / "MAP-004.xosc")
+    tiny = str(FIXTURES / "maps" / "tiny.xodr")
+    assert main(["lint", scenario, "--map", tiny]) == 1  # --map implies L2
+    assert "MAP-004" in capsys.readouterr().out
+
+
+def test_lint_l2_map_from_logic_file(capsys: pytest.CaptureFixture[str]) -> None:
+    # No --map: L2 resolves RoadNetwork/LogicFile relative to the scenario.
+    scenario = str(FIXTURES / "l2" / "MAP-001.xosc")
+    assert main(["lint", scenario, "--layers", "L0,L1,L2"]) == 1
+    assert "MAP-001" in capsys.readouterr().out
+
+
+def test_lint_l2_clean_fixture(capsys: pytest.CaptureFixture[str]) -> None:
+    scenario = str(FIXTURES / "l2" / "valid_l2_clean.xosc")
+    assert main(["lint", scenario, "--layers", "L0,L1,L2", "--fail-on", "warning"]) == 0
+
+
+def test_lint_l2_without_map_notes_skip(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["lint", VIOLATING_FILE, "--layers", "L0,L1,L2"]) == 1  # KIN-001 still fires
+    assert "L2 skipped" in capsys.readouterr().err
+
+
+def test_lint_missing_map_exit_three(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["lint", VIOLATING_FILE, "--map", "/nonexistent/map.xodr"]) == 3

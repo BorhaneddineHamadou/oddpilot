@@ -6,7 +6,8 @@ Pure Python ≥ 3.10; no simulator dependencies; the only runtime dependency is 
 ```bash
 pip install -e .
 physcheck lint suite/ --format sarif -o lint.sarif --fail-on error
-physcheck rules list --layer L1
+physcheck lint suite/ --map town04.xodr        # L2 map cross-checks + solar_geo
+physcheck rules list --layer L2
 physcheck rules show ATM-001
 ```
 
@@ -17,6 +18,13 @@ physcheck rules show ATM-001
   ParameterDeclaration / `$param` / `${expr}` resolution). Rules never see raw XML — they
   read a flat, canonically named **attribute view** (`physcheck.ir.attributes`), documented
   in `../docs/attribute_space.md`.
+- **OpenDRIVE maps** (`physcheck.xodr`): stdlib-only `.xodr` frontend — roads, lane
+  sections/types/widths, links & junctions, speed records, plan-view geometry
+  (line/arc/spiral/poly3/paramPoly3) with world↔road projection, and the `geoReference`
+  geodetic anchor. Powers layer L2: `--map FILE`, or automatic resolution of each
+  scenario's `RoadNetwork/LogicFile`.
+- **Solar ephemeris** (`physcheck.ephemeris`): dependency-free NOAA/Meeus solar position
+  (~0.01°), used by the L2 `solar_geo` rules (GEO-001…006).
 - **Rule engine** (`physcheck.engine`): loads YAML rule packs (`catalog/*.yaml`) and Python
   plugin rules (`physcheck.engine.plugins`), evaluates predicates in a safe expression
   language, and emits findings.

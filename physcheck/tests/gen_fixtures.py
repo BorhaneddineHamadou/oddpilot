@@ -483,9 +483,187 @@ EXAMPLE_VIOLATING: dict[str, str] = {
 }
 
 
+# --- L2 fixtures (need the OpenDRIVE maps in fixtures/maps/) ---------------
+#
+# All numbers are pre-computed against fixtures/maps/tiny.xodr (geoReference
+# lat_0=48.9917 lon_0=8.0019) and physcheck.ephemeris; see test_l2.py.
+
+_L2_ENV_SUN_OK = env_xml(
+    tod="2026-06-21T14:00:00", oktas="oneOktas", temperature=295.15, pressure=101300,
+    sun={"azimuth": 3.4176, "elevation": 1.1130, "illuminance": 95000},
+    precip={"precipitationType": "dry", "precipitationIntensity": 0},
+    friction=1.0, wetness="dry",
+)
+
+
+def lane_pos(road: str, lane: str, s: float) -> str:
+    return f'<LanePosition roadId="{road}" laneId="{lane}" s="{s}" offset="0"/>'
+
+
+def world_pos(x: float, y: float, h: float = 0.0) -> str:
+    return f'<WorldPosition x="{x}" y="{y}" z="0" h="{h}"/>'
+
+
+def teleport(pos: str) -> str:
+    return f"<TeleportAction><Position>{pos}</Position></TeleportAction>"
+
+
+def route(waypoints: list[str]) -> str:
+    wps = "".join(
+        f'<Waypoint routeStrategy="shortest"><Position>{p}</Position></Waypoint>'
+        for p in waypoints
+    )
+    return (
+        "<RoutingAction><AssignRouteAction>"
+        f'<Route name="r" closed="false">{wps}</Route>'
+        "</AssignRouteAction></RoutingAction>"
+    )
+
+
+def l2_xosc(
+    *,
+    map_file: str = "../maps/tiny.xodr",
+    env: str = "",
+    cars: list[dict[str, Any]] | None = None,
+    description: str = "physcheck L2 fixture",
+) -> str:
+    cars = cars if cars is not None else [{"name": "ego"}]
+    entities_xml = "".join(
+        entity_xml({"name": c["name"], "bbox": c.get("bbox", (4.6, 1.86, 1.5)),
+                    "perf": c.get("perf", (62, 5, 9)), "mass": 1600})
+        for c in cars
+    )
+    init_env = f"      <GlobalAction>\n{env}      </GlobalAction>\n" if env else ""
+    init_privates = ""
+    for c in cars:
+        acts = []
+        if "pos" in c:
+            acts.append(teleport(c["pos"]))
+        if "init_speed" in c:
+            acts.append(speed_action_xml(target=c["init_speed"]))
+        if "route" in c:
+            acts.append(route(c["route"]))
+        if acts:
+            actions = "".join(f"        <PrivateAction>{a}</PrivateAction>\n" for a in acts)
+            init_privates += (
+                f'      <Private entityRef="{c["name"]}">\n{actions}      </Private>\n'
+            )
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="{description}" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="{map_file}"/></RoadNetwork>
+  <Entities>
+{entities_xml}  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+{init_env}{init_privates}      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>
+"""
+
+
+L2_FIXTURES: dict[str, str] = {
+    "MAP-000": l2_xosc(
+        map_file="../maps/broken.xodr",
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10)}],
+        description="map with parse problems",
+    ),
+    "MAP-001": l2_xosc(
+        cars=[{"name": "ego", "pos": lane_pos("7", "-1", 10)}],
+        description="references road 7 which does not exist",
+    ),
+    "MAP-002": l2_xosc(
+        cars=[{"name": "ego", "pos": lane_pos("1", "-5", 10)}],
+        description="references lane -5 which does not exist on road 1",
+    ),
+    "MAP-003": l2_xosc(
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 500)}],
+        description="s=500 beyond the 100 m road",
+    ),
+    "MAP-004": l2_xosc(
+        cars=[{"name": "ego", "pos": lane_pos("1", "-2", 10)}],
+        description="car spawned on the sidewalk lane",
+    ),
+    "MAP-005": l2_xosc(
+        cars=[
+            {"name": "ego", "pos": world_pos(10.0, -1.75)},
+            {"name": "npc", "pos": world_pos(12.5, -1.75)},
+        ],
+        description="4.6 m cars 2.5 m apart: bounding boxes overlap",
+    ),
+    "MAP-006": l2_xosc(
+        cars=[{
+            "name": "ego",
+            "pos": lane_pos("1", "-1", 10),
+            "route": [lane_pos("1", "-1", 80), lane_pos("99", "-1", 10)],
+        }],
+        description="route waypoint on the disconnected island road 99",
+    ),
+    "MAP-007": l2_xosc(
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10), "init_speed": 30}],
+        description="30 m/s commanded on a 50 km/h road",
+    ),
+    "GEO-001": l2_xosc(
+        env=env_xml(sun={"azimuth": 0.0, "elevation": 1.0472, "illuminance": 90000}),
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10)}],
+        description="sun at 60 deg elevation due north: declination 79 deg, impossible",
+    ),
+    "GEO-002": l2_xosc(
+        env=env_xml(sun={"azimuth": 3.1416, "elevation": 1.1868, "illuminance": 90000}),
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10)}],
+        description="sun implies declination 27 deg: 3.6 deg beyond the band",
+    ),
+    "GEO-003": l2_xosc(
+        env=env_xml(sun={"elevation": 1.3963, "illuminance": 90000}),
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10)}],
+        description="80 deg elevation, azimuth undeclared: 15.6 deg over the latitude max",
+    ),
+    "GEO-004": l2_xosc(
+        env=env_xml(sun={"elevation": 1.1519, "illuminance": 90000}),
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10)}],
+        description="66 deg elevation, azimuth undeclared: 1.6 deg over the latitude max",
+    ),
+    "GEO-005": l2_xosc(
+        env=env_xml(
+            tod="2026-06-21T14:00:00",
+            sun={"azimuth": 2.3562, "elevation": 0.6981, "illuminance": 90000},
+        ),
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10)}],
+        description="sun 25+ deg away from the ephemeris under every timezone reading",
+    ),
+    "GEO-006": l2_xosc(
+        env=env_xml(
+            tod="2026-06-21T14:00:00",
+            sun={"azimuth": 3.4176, "elevation": 1.1479, "illuminance": 90000},
+        ),
+        cars=[{"name": "ego", "pos": lane_pos("1", "-1", 10)}],
+        description="sun 2 deg above the ephemeris position (DST reading)",
+    ),
+    "valid_l2_clean": l2_xosc(
+        env=_L2_ENV_SUN_OK,
+        cars=[
+            {
+                "name": "ego",
+                "pos": lane_pos("1", "-1", 20),
+                "init_speed": 12,
+                "route": [lane_pos("1", "-1", 80), lane_pos("3", "-1", 10)],
+            },
+            {"name": "npc", "pos": lane_pos("1", "-1", 60)},
+        ],
+        description="consistent with tiny.xodr: on-lane, spaced, connected, legal, real sun",
+    ),
+}
+
+
 def main() -> None:
     (FIXTURES / "violating").mkdir(parents=True, exist_ok=True)
     (FIXTURES / "valid").mkdir(parents=True, exist_ok=True)
+    (FIXTURES / "l2").mkdir(parents=True, exist_ok=True)
+    for name, content in sorted(L2_FIXTURES.items()):
+        (FIXTURES / "l2" / f"{name}.xosc").write_text(content, encoding="utf-8")
     for rule_id, content in sorted(VIOLATING.items()):
         (FIXTURES / "violating" / f"{rule_id}.xosc").write_text(content, encoding="utf-8")
     for name, content in sorted(VALID.items()):

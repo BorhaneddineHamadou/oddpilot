@@ -134,3 +134,61 @@ What resolving catalogs revealed — all previously invisible:
 
 The v0.1 blind spot quantified above is closed: catalog-defined entities no longer
 escape the envelope rules.
+
+---
+
+## Update 3 (2026-07-20, physcheck 0.2.0): first L2 scan — map cross-checks + solar_geo
+
+**Layers L0–L2, 139 rules (116 YAML + 23 plugin).** Maps: esmini and ALKS resolve their
+own `RoadNetwork/LogicFile` (ALKS via the now-resolved `$Road` parameter); srunner
+references the engine-internal name "Town01"/"Town04", so the matching CARLA 0.9.16
+`.xodr` files were passed with `--map`.
+
+| Corpus | Files L2-checked | Files with ≥1 L2 finding | L2 findings by rule |
+|---|---|---|---|
+| CARLA ScenarioRunner | 16 | **16 / 16 (100%)** | GEO-005 ×17, MAP-004 ×13 |
+| esmini | 62 | 4 | MAP-005 ×4, MAP-007 ×1, GEO-005 ×2 |
+| ASAM ALKS | 15 | **0** | — |
+
+What the srunner findings mean:
+
+- **All 13 MAP-004 "spawns off any drivable lane" findings carry the mirror-frame
+  note**: every flagged WorldPosition lands exactly on a drivable lane after y → −y.
+  The suite's coordinates are in CARLA's left-handed (Unreal) frame, not the OpenDRIVE
+  inertial frame ASAM OpenSCENARIO mandates — the scenarios only work because
+  ScenarioRunner mirrors them back internally; fed to any conformant engine they spawn
+  vehicles into fields (decisions.md D23). A textbook engine-coupling defect,
+  complementing the L1 attribute findings.
+- **GEO-005 fires in all 16 scenarios**: the suite's copy-pasted environment declares
+  sun at elevation 75.1° / azimuth 0° (due north!). At the maps' declared origin
+  (CARLA's geoReference says lat 0°, lon 0°) that direction is ≥14.9° off the
+  ephemeris under every timezone reading of each scenario's dateTime (e.g. equinox
+  noon: true sun 88.2° high near due east). `ChangingWeather.xosc` keeps the *same*
+  75.1° sun in its 22:00 night state — 136° away from the real sun, which is 40° below
+  the horizon. The pattern: sun direction is decoration, never validated — and azimuth
+  0 is physically impossible for any daytime sun between the tropics.
+- The one non-mirror srunner spawn (CyclistCrossing adversary on a sidewalk) is now
+  accepted: bicycles may stage on sidewalks (D23).
+
+esmini, in character (hand-maintained, mostly consistent, a few demo idioms):
+
+- `trailers.xosc` — tractor + two trailers teleported to the *same* LanePosition
+  (MAP-005 ×3): the hitch coupling that un-overlaps them is esmini-side, invisible at
+  OSC level (D27). `long_dist_action_with_jerk.xosc` places two comparison egos on the
+  same spot (MAP-005). `drop-bike.xosc` (bike mounted on a car via
+  RelativeObjectPosition) is correctly *exempt* as the attachment idiom.
+- `slow-lead-vehicle.xosc` commands the ego to 30 m/s on a 50 km/h road — 216% of the
+  road's own speed record (MAP-007).
+- `cut-in_environment.xosc` declares daytime suns (el. 22.9°/17.2°) for explicitly
+  UTC-stamped times (`12:00:00+00:00`, `12:30:00+00:00`) at the map's Californian
+  geoReference (37.35°N, 122.09°W) — 04:00 local, deep night (ephemeris el. −28°/−32°;
+  GEO-005 ×2). The `+00:00` suffix contradicts the intended local noon: exactly the
+  timezone trap D5 predicted, and it is only visible now because tz-aware dateTimes
+  are taken literally (D25).
+- ALKS again 0 findings with maps loaded — the false-positive check now also covers
+  road/lane references, spawn lanes, routes, speed limits and solar geometry.
+
+Method note: all findings above were manually verified against the maps (projection
+distances, mirrored coordinates, NOAA ephemeris cross-check); the two false-positive
+classes found during verification (attachment idiom, cyclists on sidewalks) were fixed
+before this tally (D23, D27).

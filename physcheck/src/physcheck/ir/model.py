@@ -131,8 +131,58 @@ class Entity:
     mass_kg: float | None = None
     model: str | None = None
     initial_speed_mps: float | None = None
+    #: Init teleport position, when declared.
+    initial_position: Position | None = None
     #: True when the entity comes from an unresolved CatalogReference.
     from_catalog: bool = False
+
+
+@dataclass
+class Position:
+    """One OpenSCENARIO Position element, normalised.
+
+    ``kind`` is one of: world | relative_world | relative_object | road |
+    relative_road | lane | relative_lane | route | trajectory | geo | other.
+    Only the fields meaningful for the kind are set; everything else is None.
+    """
+
+    kind: str
+    #: WorldPosition (map/inertial frame), metres / radians.
+    x: float | None = None
+    y: float | None = None
+    z: float | None = None
+    h: float | None = None
+    #: RoadPosition / LanePosition target (OpenDRIVE road & lane ids).
+    road_id: str | None = None
+    lane_id: str | None = None
+    s: float | None = None
+    #: RoadPosition ``t`` or LanePosition ``offset`` (lateral, metres).
+    t_or_offset: float | None = None
+    #: Relative* positions: the reference entity and the offsets.
+    entity_ref: str | None = None
+    dx: float | None = None
+    dy: float | None = None
+
+
+@dataclass
+class PositionUse:
+    """A Position occurrence with its provenance inside the scenario."""
+
+    position: Position
+    #: Entity the position applies to ("" when not entity-bound).
+    entity: str = ""
+    label: str = ""
+    #: True when this is an Init teleport (defines the entity's start pose).
+    is_init: bool = False
+
+
+@dataclass
+class RouteAssignment:
+    """An AssignRouteAction / AcquirePositionAction for one entity."""
+
+    entity: str
+    waypoints: list[Position] = field(default_factory=list)
+    label: str = ""
 
 
 @dataclass
@@ -167,6 +217,9 @@ class Scenario:
     environments: list[Environment] = field(default_factory=list)
     speed_commands: list[SpeedCommand] = field(default_factory=list)
     lane_changes: list[LaneChange] = field(default_factory=list)
+    #: Every Position occurrence with provenance (teleports, route waypoints, ...).
+    position_uses: list[PositionUse] = field(default_factory=list)
+    routes: list[RouteAssignment] = field(default_factory=list)
     #: All entityRef values seen anywhere in the storyboard/init.
     entity_refs: list[str] = field(default_factory=list)
     road_network_logic_file: str | None = None
