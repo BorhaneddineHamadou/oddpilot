@@ -1,0 +1,445 @@
+# Road-user kinematic & biomechanic envelope rules (layer L1, map-independent).
+# Derivation & rejected candidates: docs/catalog_report.md §Kinematics.
+pack: kinematics
+version: "0.1.0"
+description: >
+  Per-category bounds on speeds, accelerations, decelerations and maneuver
+  durations, checkable from the .xosc alone (no map required). Speeds use
+  entity.max_target_speed_mps = max(initial speed, absolute SpeedAction targets).
+rules:
+  - id: KIN-001
+    layer: L1
+    severity: error
+    title: Pedestrian faster than any human ever recorded
+    scope: entity
+    when: "entity.category == 'pedestrian'"
+    assert: "entity.max_target_speed_mps <= 12.5"
+    message: >
+      Pedestrian '{entity.name}' reaches {entity.max_target_speed_mps} m/s: the
+      fastest human peak sprint velocity ever measured is ~12.3-12.4 m/s
+      (U. Bolt, Berlin 2009).
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "Krzysztof, M. & Mero, A., A kinematics analysis of three best 100 m performances ever, Journal of Human Kinetics 36:149-160; Graubner, R. & Nixdorf, E., IAAF Berlin 2009 biomechanical report, New Studies in Athletics 26:19-53 (2011)"
+      year: 2013
+      doi_or_url: "https://doi.org/10.2478/hukin-2013-0015"
+    quantitative_basis: "Bolt peak segment velocity 12.30-12.34 m/s (60-80 m split, 9.58 s WR)."
+
+  - id: KIN-002
+    layer: L1
+    severity: warning
+    title: Pedestrian at trained-sprinter speed
+    scope: entity
+    when: "entity.category == 'pedestrian'"
+    assert: "entity.max_target_speed_mps <= 8.0"
+    message: >
+      Pedestrian '{entity.name}' reaches {entity.max_target_speed_mps} m/s: only
+      trained sprinters exceed ~8 m/s, and only for tens of seconds.
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "Weyand, P.G. et al., Faster top running speeds are achieved with greater ground forces not more rapid leg movements, J Appl Physiol 89:1991-1999 (2000); Krzysztof & Mero (2013)"
+      year: 2000
+      doi_or_url: "https://doi.org/10.1152/jappl.2000.89.5.1991"
+    quantitative_basis: "Recreational maximal sprint speeds cluster 6-8 m/s; elite mean 100 m velocity ~10.4 m/s."
+
+  - id: KIN-003
+    layer: L1
+    severity: info
+    title: Pedestrian running rather than walking
+    scope: entity
+    when: "entity.category == 'pedestrian'"
+    assert: "entity.max_target_speed_mps <= 3.0"
+    message: >
+      Pedestrian '{entity.name}' moves at {entity.max_target_speed_mps} m/s:
+      above the maximum human walking speed (~2.5 m/s), i.e. the entity is
+      running — valid, but should be intentional.
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "Bohannon, R.W., Comfortable and maximum walking speed of adults aged 20-79 years, Age and Ageing 26(1):15-19"
+      year: 1997
+      doi_or_url: "https://doi.org/10.1093/ageing/26.1.15"
+    quantitative_basis: "Comfortable gait 1.27-1.46 m/s; maximum gait 1.75-2.53 m/s."
+
+  - id: KIN-004
+    layer: L1
+    severity: error
+    title: Pedestrian acceleration beyond elite sprint-start peak
+    scope: entity
+    when: "entity.category == 'pedestrian'"
+    assert: "entity.max_speed_change_rate_mps2 <= 10.0"
+    message: >
+      Pedestrian '{entity.name}' commanded speed-change rate
+      {entity.max_speed_change_rate_mps2} m/s^2 exceeds even the transient
+      elite sprint-start peak (~9-10 m/s^2) — non-physical for a human.
+    units: { entity.max_speed_change_rate_mps2: "m/s^2" }
+    citation:
+      source: "di Prampero, P.E. et al., Sprint running: a new energetic approach, J Exp Biol 208:2809-2816"
+      year: 2005
+      doi_or_url: "https://doi.org/10.1242/jeb.01700"
+    quantitative_basis: "Peak forward acceleration ~9-10 m/s^2 for ~0.3 s in elite sprinters, decaying rapidly."
+
+  - id: KIN-005
+    layer: L1
+    severity: warning
+    title: Pedestrian acceleration above normal human capability
+    scope: entity
+    when: "entity.category == 'pedestrian'"
+    assert: "entity.max_speed_change_rate_mps2 <= 4.5"
+    message: >
+      Pedestrian '{entity.name}' commanded speed-change rate
+      {entity.max_speed_change_rate_mps2} m/s^2: sustained human acceleration
+      to top speed is ~3-4 m/s^2.
+    units: { entity.max_speed_change_rate_mps2: "m/s^2" }
+    citation:
+      source: "di Prampero, P.E. et al., J Exp Biol 208:2809-2816 (2005); Weyand et al., J Appl Physiol 89:1991-1999 (2000)"
+      year: 2005
+      doi_or_url: "https://doi.org/10.1242/jeb.01700"
+    quantitative_basis: "Sustained/average sprint acceleration ~3-4 m/s^2."
+
+  - id: KIN-006
+    layer: L1
+    severity: error
+    title: Bicycle above absolute human-powered speed record
+    scope: entity
+    when: "entity.category == 'bicycle'"
+    assert: "entity.max_target_speed_mps <= 39.0"
+    message: >
+      Bicycle '{entity.name}' reaches {entity.max_target_speed_mps} m/s: the
+      unpaced flat human-powered record is 40.05 m/s (144.17 km/h) — in a fully
+      faired recumbent streamliner, not an upright bicycle.
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "IHPVA/WHPSC records: T. Reichert, AeroVelo Eta, 144.17 km/h unpaced 200 m flying start, Battle Mountain NV (2016); List of cycling records"
+      year: 2016
+      doi_or_url: "https://en.wikipedia.org/wiki/List_of_cycling_records"
+    quantitative_basis: "Absolute flat unpaced record ~40 m/s; upright records far lower."
+
+  - id: KIN-007
+    layer: L1
+    severity: warning
+    title: Bicycle at competitive-racing speed
+    scope: entity
+    when: "entity.category == 'bicycle'"
+    assert: "entity.max_target_speed_mps <= 12.0"
+    message: >
+      Bicycle '{entity.name}' sustains {entity.max_target_speed_mps} m/s:
+      naturalistic urban cycling is 3.75-6.5 m/s; sustained >12 m/s implies
+      elite road racing or a descent.
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "Schleinitz, K. et al., The German Naturalistic Cycling Study - comparing cycling speed of riders of different e-bikes and conventional bicycles, Safety Science 92:290-297"
+      year: 2017
+      doi_or_url: "https://doi.org/10.1016/j.ssci.2015.07.027"
+    quantitative_basis: "Conventional bicycle mean ~4.2 m/s; urban means 3.75-6.5 m/s; road cyclists cruise 8-12 m/s."
+
+  - id: KIN-008
+    layer: L1
+    severity: warning
+    title: Bicycle acceleration above measured human cycling capability
+    scope: entity
+    when: "entity.category == 'bicycle'"
+    assert: "entity.max_speed_change_rate_mps2 <= 2.0"
+    message: >
+      Bicycle '{entity.name}' commanded speed-change rate
+      {entity.max_speed_change_rate_mps2} m/s^2: naturalistic cyclist
+      acceleration means ~0.3-0.4 m/s^2, observed maxima ~1.2-1.5 m/s^2.
+    units: { entity.max_speed_change_rate_mps2: "m/s^2" }
+    citation:
+      source: "Kutsch, A., Kessler, L. & Bogenberger, K., Analyzing Bicycle Riding Characteristics Based on Naturalistic Urban Drone Observations, Transportation Research Record (2025); Parkin, J. & Rotheram, J., Design speeds and acceleration characteristics of bicycle traffic, Transport Policy 17(5):335-341 (2010)"
+      year: 2025
+      doi_or_url: "https://doi.org/10.1177/03611981251341354"
+    quantitative_basis: "Mean accel 0.36 m/s^2, max 1.23 m/s^2 (drone observations); design values 0.5-1.0 m/s^2."
+
+  - id: KIN-009
+    layer: L1
+    severity: warning
+    title: Animal faster than its plausible envelope
+    scope: entity
+    when: "entity.category == 'animal'"
+    assert: "entity.max_target_speed_mps <= 20.0"
+    message: >
+      Animal '{entity.name}' reaches {entity.max_target_speed_mps} m/s: road-
+      scenario species maxima are ~13-18 m/s (deer), ~20 m/s (greyhound),
+      ~19 m/s (horse).
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "Usherwood, J.R. & Wilson, A.M., Biomechanics: No force limit on greyhound sprint speed, Nature 438:753-754"
+      year: 2005
+      doi_or_url: "https://doi.org/10.1038/438753a"
+    quantitative_basis: "Greyhound peak ~72 km/h (~20 m/s); white-tailed deer ~48-64 km/h."
+
+  - id: KIN-010
+    layer: L1
+    severity: error
+    title: Animal faster than the fastest land animal
+    scope: entity
+    when: "entity.category == 'animal'"
+    assert: "entity.max_target_speed_mps <= 33.0"
+    message: >
+      Animal '{entity.name}' reaches {entity.max_target_speed_mps} m/s: faster
+      than the cheetah (~29-33 m/s), the fastest land animal — non-physical.
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "Sharp, N.C.C., Timed running speed of a cheetah (Acinonyx jubatus), Journal of Zoology 241:493-494"
+      year: 1997
+      doi_or_url: "https://doi.org/10.1111/j.1469-7998.1997.tb04840.x"
+    quantitative_basis: "Cheetah timed at 29.3 m/s; absolute terrestrial ceiling ~33 m/s."
+
+  - id: KIN-011
+    layer: L1
+    severity: error
+    title: Vehicle maxSpeed above the production-car record
+    scope: entity
+    when: "entity.kind == 'vehicle' and entity.category not in ['train', 'tram']"
+    assert: "entity.max_speed_mps <= 140.0"
+    message: >
+      Vehicle '{entity.name}' declares maxSpeed = {entity.max_speed_mps} m/s:
+      the fastest verified production-car top speed is 136.25 m/s
+      (490.484 km/h, Bugatti Chiron SS 300+, TUV-verified 2019).
+    units: { entity.max_speed_mps: "m/s" }
+    citation:
+      source: "List of production car speed records (Bugatti Chiron Super Sport 300+, 490.484 km/h, Ehra-Lessien, 2 Aug 2019, TUV-verified)"
+      year: 2019
+      doi_or_url: "https://en.wikipedia.org/wiki/Production_car_speed_record"
+    quantitative_basis: "Absolute production-car ceiling ~136 m/s; threshold 140 m/s sits just above."
+
+  - id: KIN-012
+    layer: L1
+    severity: warning
+    title: Passenger car maxSpeed in hypercar-record territory
+    scope: entity
+    when: "entity.category == 'car'"
+    assert: "entity.max_speed_mps <= 100.0"
+    message: >
+      Car '{entity.name}' declares maxSpeed = {entity.max_speed_mps} m/s
+      (>360 km/h): only a handful of hypercars ever built exceed this; typical
+      cars are electronically limited to ~250 km/h (~69 m/s).
+    units: { entity.max_speed_mps: "m/s" }
+    citation:
+      source: "List of production car speed records; typical 250 km/h German gentlemen's-agreement limiter"
+      year: 2019
+      doi_or_url: "https://en.wikipedia.org/wiki/Production_car_speed_record"
+    quantitative_basis: "See docs/catalog_report.md for the 100 m/s threshold decision."
+
+  - id: KIN-013
+    layer: L1
+    severity: warning
+    title: Heavy vehicle maxSpeed above governed class capability
+    scope: entity
+    when: "entity.category in ['truck', 'bus', 'semitrailer', 'trailer']"
+    assert: "entity.max_speed_mps <= 40.0"
+    message: >
+      Heavy vehicle '{entity.name}' declares maxSpeed = {entity.max_speed_mps}
+      m/s (>144 km/h): EU trucks are speed-limited to 90 km/h, buses to
+      100 km/h by regulation.
+    units: { entity.max_speed_mps: "m/s" }
+    citation:
+      source: "Council Directive 92/6/EEC (as amended by 2002/85/EC) on speed limitation devices: 90 km/h trucks >3.5t, 100 km/h buses"
+      year: 2002
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31992L0006"
+    quantitative_basis: "Regulatory limiter 25-28 m/s; 40 m/s allows ungoverned capability margin."
+
+  - id: KIN-014
+    layer: L1
+    severity: error
+    title: Vehicle braking beyond the street-tire physical ceiling
+    scope: entity
+    when: "entity.kind == 'vehicle'"
+    assert: "entity.max_decel_mps2 <= 11.8"
+    message: >
+      Vehicle '{entity.name}' declares maxDeceleration =
+      {entity.max_decel_mps2} m/s^2: peak street-tire friction (mu ~1.2) bounds
+      level-road braking to ~11.8 m/s^2; more requires aerodynamic downforce.
+    units: { entity.max_decel_mps2: "m/s^2" }
+    citation:
+      source: "Pacejka, H.B., Tire and Vehicle Dynamics, 3rd ed. (peak mu ~1.1-1.2 street tires); Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 3"
+      year: 2012
+      doi_or_url: "https://doi.org/10.1016/C2010-0-68548-8"
+    quantitative_basis: "mu_peak,max ~1.2 x 9.81 = 11.77 m/s^2; instrumented production-car tests cluster 0.8-1.05 g."
+
+  - id: KIN-015
+    layer: L1
+    severity: warning
+    title: Heavy vehicle braking above realistic capability
+    scope: entity
+    when: "entity.category in ['truck', 'bus', 'semitrailer', 'trailer']"
+    assert: "entity.max_decel_mps2 <= 8.0"
+    message: >
+      Heavy vehicle '{entity.name}' declares maxDeceleration =
+      {entity.max_decel_mps2} m/s^2: laden heavy vehicles realistically peak at
+      ~5-7 m/s^2.
+    units: { entity.max_decel_mps2: "m/s^2" }
+    citation:
+      source: "UNECE Regulation No. 13 (heavy vehicle braking), Annex 4 service-brake performance; laden heavy-vehicle test literature"
+      year: 2016
+      doi_or_url: "https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20"
+    quantitative_basis: "R13 prescribes MFDD ~5.0 m/s^2 minimum; real laden peaks 5-7 m/s^2."
+
+  - id: KIN-016
+    layer: L1
+    severity: warning
+    title: Heavy vehicle braking below regulatory minimum
+    scope: entity
+    when: "entity.category in ['truck', 'bus']"
+    assert: "entity.max_decel_mps2 >= 5.0"
+    message: >
+      Heavy vehicle '{entity.name}' declares maxDeceleration =
+      {entity.max_decel_mps2} m/s^2: below the UNECE R13 service-brake
+      type-approval minimum (~5 m/s^2) — models a defective vehicle.
+    units: { entity.max_decel_mps2: "m/s^2" }
+    citation:
+      source: "UNECE Regulation No. 13, Annex 4: service braking minimum performance, M2/M3/N categories"
+      year: 2016
+      doi_or_url: "https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20"
+    quantitative_basis: "Type-0 prescribed MFDD ~5.0 m/s^2 for buses/goods vehicles."
+
+  - id: KIN-017
+    layer: L1
+    severity: warning
+    title: Bicycle braking beyond the pitch-over limit
+    scope: entity
+    when: "entity.category == 'bicycle'"
+    assert: "entity.max_decel_mps2 <= 7.0"
+    message: >
+      Bicycle '{entity.name}' declares maxDeceleration =
+      {entity.max_decel_mps2} m/s^2: front-wheel braking is limited by rider
+      pitch-over ('endo') at ~0.5-0.6 g (~5-6 m/s^2).
+    units: { entity.max_decel_mps2: "m/s^2" }
+    citation:
+      source: "Wilson, D.G. & Schmidt, T., Bicycling Science, 4th ed., MIT Press (pitch-over braking limit)"
+      year: 2020
+      doi_or_url: "https://mitpress.mit.edu/9780262538404/bicycling-science/"
+    quantitative_basis: "Pitch-over limit ~0.5-0.6 g; AASHTO bicycle design deceleration ~1.5 m/s^2 (comfort)."
+
+  - id: KIN-018
+    layer: L1
+    severity: error
+    title: Vehicle acceleration beyond record production capability
+    scope: entity
+    when: "entity.kind == 'vehicle' and entity.category not in ['train', 'tram']"
+    assert: "entity.max_accel_mps2 <= 13.0"
+    message: >
+      Vehicle '{entity.name}' declares maxAcceleration =
+      {entity.max_accel_mps2} m/s^2: the fastest production EVs peak at
+      ~1.2-1.3 g (~12-13 m/s^2) transiently; street-tire traction sustains
+      ~1 g.
+    units: { entity.max_accel_mps2: "m/s^2" }
+    citation:
+      source: "Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 2 (traction limit); production-EV acceleration records (Rimac Nevera 0-60 mph 1.74 s)"
+      year: 1992
+      doi_or_url: "https://doi.org/10.4271/R-114"
+    quantitative_basis: "Traction ceiling mu ~1.0-1.1 x g; record launches peak ~1.2-1.3 g with sticky tires."
+
+  - id: KIN-019
+    layer: L1
+    severity: warning
+    title: Passenger car acceleration in supercar territory
+    scope: entity
+    when: "entity.category == 'car'"
+    assert: "entity.max_accel_mps2 <= 9.0"
+    message: >
+      Car '{entity.name}' declares maxAcceleration = {entity.max_accel_mps2}
+      m/s^2 (~0.9 g): field-measured petrol/diesel car maxima are
+      2.2-2.9 m/s^2; ~0.9 g is launch-control supercar territory.
+    units: { entity.max_accel_mps2: "m/s^2" }
+    citation:
+      source: "Bokare, P.S. & Maurya, A.K., Acceleration-Deceleration Behaviour of Various Vehicle Types, Transportation Research Procedia 25:4733-4749"
+      year: 2017
+      doi_or_url: "https://doi.org/10.1016/j.trpro.2017.05.486"
+    quantitative_basis: "Field data: max acceleration petrol cars 2.87 m/s^2, diesel 2.23 m/s^2."
+
+  - id: KIN-020
+    layer: L1
+    severity: warning
+    title: Heavy vehicle acceleration above capability
+    scope: entity
+    when: "entity.category in ['truck', 'bus', 'semitrailer', 'trailer']"
+    assert: "entity.max_accel_mps2 <= 3.0"
+    message: >
+      Heavy vehicle '{entity.name}' declares maxAcceleration =
+      {entity.max_accel_mps2} m/s^2: measured truck maxima are ~1 m/s^2;
+      power-to-mass bounds heavy vehicles well below car acceleration.
+    units: { entity.max_accel_mps2: "m/s^2" }
+    citation:
+      source: "Bokare, P.S. & Maurya, A.K., Transportation Research Procedia 25:4733-4749"
+      year: 2017
+      doi_or_url: "https://doi.org/10.1016/j.trpro.2017.05.486"
+    quantitative_basis: "Truck field maxima ~1 m/s^2; 3 m/s^2 is a generous unladen bound."
+
+  - id: KIN-021
+    layer: L1
+    severity: error
+    title: Lane change faster than any observed
+    scope: entity
+    when: "entity.kind == 'vehicle'"
+    assert: "entity.min_lane_change_time_s >= 1.0"
+    message: >
+      Entity '{entity.name}' commands a lane change completing in
+      {entity.min_lane_change_time_s} s: naturalistic lane-change durations
+      average ~5 s and essentially never fall below ~1 s; a <1 s change of a
+      ~3.5 m lane implies lateral acceleration near or beyond the friction
+      limit.
+    units: { entity.min_lane_change_time_s: "s" }
+    citation:
+      source: "Toledo, T. & Zohar, D., Modeling Duration of Lane Changes, Transportation Research Record 1999:71-78"
+      year: 2007
+      doi_or_url: "https://doi.org/10.3141/1999-08"
+    quantitative_basis: >
+      Mean lane-change duration 4.6-5.8 s, observed range ~1 to >13 s; for a
+      3.5 m lane a 1 s sinusoidal change implies ~7 m/s^2 peak lateral
+      acceleration (~0.7 g).
+
+  - id: KIN-022
+    layer: L1
+    severity: warning
+    title: Uncomfortably fast lane change
+    scope: entity
+    when: "entity.kind == 'vehicle'"
+    assert: "entity.min_lane_change_time_s >= 2.0"
+    message: >
+      Entity '{entity.name}' commands a lane change completing in
+      {entity.min_lane_change_time_s} s: below the ~2 s tail of naturalistic
+      distributions; implies lateral acceleration far above the comfortable
+      0.1-0.3 g.
+    units: { entity.min_lane_change_time_s: "s" }
+    citation:
+      source: "Toledo, T. & Zohar, D., TRR 1999:71-78 (2007); Gillespie, Fundamentals of Vehicle Dynamics, SAE R-114 (comfort lateral acceleration)"
+      year: 2007
+      doi_or_url: "https://doi.org/10.3141/1999-08"
+    quantitative_basis: "Naturalistic durations seldom below ~1.5-2 s; comfort lateral accel 0.1-0.3 g."
+
+  - id: KIN-023
+    layer: L1
+    severity: error
+    title: Commanded speed exceeds the entity's declared capability
+    scope: entity
+    when: "entity.kind == 'vehicle' and exists('entity.max_speed_mps')"
+    assert: "entity.max_target_speed_mps <= entity.max_speed_mps * 1.01"
+    message: >
+      Entity '{entity.name}' is commanded to {entity.max_target_speed_mps} m/s
+      but declares Performance maxSpeed = {entity.max_speed_mps} m/s: the
+      scenario contradicts its own vehicle model.
+    units: { entity.max_target_speed_mps: "m/s", entity.max_speed_mps: "m/s" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, class Performance (maxSpeed: maximum speed of the vehicle)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Definitional: Performance.maxSpeed bounds achievable speed."
+
+  - id: KIN-024
+    layer: L1
+    severity: error
+    title: Commanded speed-change rate beyond record vehicle capability
+    scope: entity
+    when: "entity.kind == 'vehicle' and entity.category not in ['train', 'tram']"
+    assert: "entity.max_speed_change_rate_mps2 <= 13.0"
+    message: >
+      Entity '{entity.name}' commands a speed change at
+      {entity.max_speed_change_rate_mps2} m/s^2: beyond the ~13 m/s^2 record
+      production launch acceleration and the ~11.8 m/s^2 braking ceiling.
+    units: { entity.max_speed_change_rate_mps2: "m/s^2" }
+    citation:
+      source: "Gillespie, Fundamentals of Vehicle Dynamics, SAE R-114 (traction limits); Pacejka, Tire and Vehicle Dynamics, 3rd ed."
+      year: 1992
+      doi_or_url: "https://doi.org/10.4271/R-114"
+    quantitative_basis: "Street-tire traction bounds |dv/dt| to ~1.2-1.3 g in either direction."

@@ -1,0 +1,238 @@
+# Entity dimension & mass envelope rules (layer L1).
+# Derivation & rejected candidates: docs/catalog_report.md §Entities.
+pack: entities
+version: "0.1.0"
+description: >
+  Per-category bounds on bounding-box dimensions and mass, from vehicle
+  regulations (EU 96/53/EC, UNECE) and anthropometry.
+rules:
+  - id: ENT-001
+    layer: L1
+    severity: error
+    title: Road vehicle wider than the legal maximum
+    scope: entity
+    when: "entity.category in ['car', 'van', 'truck', 'bus', 'semitrailer', 'trailer']"
+    assert: "entity.width_m <= 2.6"
+    message: >
+      Vehicle '{entity.name}' ({entity.category}) is {entity.width_m} m wide:
+      the EU legal maximum is 2.55 m (2.60 m for refrigerated bodies).
+    units: { entity.width_m: "m" }
+    citation:
+      source: "Council Directive 96/53/EC, Annex I §1.2 (maximum authorized width 2.55 m; 2.60 m for conditioned vehicles)"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "Statutory width cap; 2.60 m used to avoid false positives on refrigerated bodies."
+
+  - id: ENT-002
+    layer: L1
+    severity: warning
+    title: Passenger car wider than production norms
+    scope: entity
+    when: "entity.category == 'car'"
+    assert: "entity.width_m <= 2.1"
+    message: >
+      Car '{entity.name}' is {entity.width_m} m wide: widest production
+      passenger cars are ~2.0-2.1 m excluding mirrors — likely a
+      mis-categorized heavy vehicle.
+    units: { entity.width_m: "m" }
+    citation:
+      source: "Council Directive 96/53/EC (context); production passenger-car dimension surveys"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "Production car width envelope ~1.6-2.1 m."
+
+  - id: ENT-003
+    layer: L1
+    severity: warning
+    title: Passenger car longer than production norms
+    scope: entity
+    when: "entity.category == 'car'"
+    assert: "entity.length_m <= 6.0"
+    message: >
+      Car '{entity.name}' is {entity.length_m} m long: production passenger
+      cars top out near ~5.5-6 m (limousines) — likely a mis-categorized
+      truck/bus.
+    units: { entity.length_m: "m" }
+    citation:
+      source: "Council Directive 96/53/EC, Annex I §1.1 (motor vehicle length cap 12 m; passenger-car production envelope)"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "Passenger-car production length ~2.5-5.7 m."
+
+  - id: ENT-004
+    layer: L1
+    severity: error
+    title: Single road vehicle longer than any legal combination
+    scope: entity
+    when: "entity.category in ['car', 'van', 'truck', 'bus', 'semitrailer', 'trailer', 'motorbike', 'bicycle']"
+    assert: "entity.length_m <= 18.75"
+    message: >
+      Vehicle '{entity.name}' ({entity.category}) is {entity.length_m} m long:
+      the EU maximum for the longest legal combination (road train /
+      articulated bus) is 18.75 m.
+    units: { entity.length_m: "m" }
+    citation:
+      source: "Council Directive 96/53/EC, Annex I §1.1 (12.00 m rigid; 16.50 m articulated; 18.75 m road train; Dir 2002/7/EC bus lengths)"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "Statutory length maxima; 18.75 m is the largest single-unit-modelable combination."
+
+  - id: ENT-005
+    layer: L1
+    severity: warning
+    title: Rigid truck or bus longer than rigid-vehicle legal maximum
+    scope: entity
+    when: "entity.category in ['truck', 'bus']"
+    assert: "entity.length_m <= 15.0"
+    message: >
+      '{entity.name}' ({entity.category}) is {entity.length_m} m long: rigid
+      trucks are capped at 12 m, rigid buses at 15 m (EU) — lengths above are
+      articulated combinations that OSC usually models as separate entities.
+    units: { entity.length_m: "m" }
+    citation:
+      source: "Council Directive 96/53/EC as amended by Directive 2002/7/EC, Annex I §1.1"
+      year: 2002
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32002L0007"
+    quantitative_basis: "12 m rigid truck / 15 m rigid bus statutory caps."
+
+  - id: ENT-006
+    layer: L1
+    severity: error
+    title: Vehicle taller than the tallest legal double-decker
+    scope: entity
+    when: "entity.category in ['car', 'van', 'truck', 'bus', 'semitrailer', 'trailer']"
+    assert: "entity.height_m <= 4.95"
+    message: >
+      Vehicle '{entity.name}' is {entity.height_m} m tall: taller than the
+      tallest operating double-deck buses (~4.95 m, UK) and far above the EU
+      4.0 m goods-vehicle cap.
+    units: { entity.height_m: "m" }
+    citation:
+      source: "Council Directive 96/53/EC, Annex I §1.4 (height 4.00 m); UK unregulated-height double-deckers ~4.95 m operational maximum"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "EU cap 4.0 m; tallest in-service buses ~4.95 m (see docs/catalog_report.md for threshold decision)."
+
+  - id: ENT-007
+    layer: L1
+    severity: warning
+    title: Heavy vehicle above EU height limit
+    scope: entity
+    when: "entity.category in ['truck', 'bus', 'semitrailer', 'trailer']"
+    assert: "entity.height_m <= 4.0"
+    message: >
+      '{entity.name}' ({entity.category}) is {entity.height_m} m tall: above
+      the EU 4.00 m maximum (US 13'6\" = 4.11 m; some jurisdictions allow
+      more — hence warning, not error).
+    units: { entity.height_m: "m" }
+    citation:
+      source: "Council Directive 96/53/EC, Annex I §1.4: maximum authorized height 4.00 m"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "Statutory height cap 4.0 m (EU)."
+
+  - id: ENT-008
+    layer: L1
+    severity: warning
+    title: Passenger car taller than production norms
+    scope: entity
+    when: "entity.category == 'car'"
+    assert: "entity.height_m <= 2.2"
+    message: >
+      Car '{entity.name}' is {entity.height_m} m tall: passenger cars/SUVs
+      rarely exceed 1.8-2.0 m — likely a mis-categorized van or truck.
+    units: { entity.height_m: "m" }
+    citation:
+      source: "Production passenger-car dimension envelopes (M1 category); Council Directive 96/53/EC context"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "Car/SUV heights ~1.4-2.0 m; vans 2.0-2.6 m."
+
+  - id: ENT-009
+    layer: L1
+    severity: error
+    title: Pedestrian taller than the tallest human ever recorded
+    scope: entity
+    when: "entity.category == 'pedestrian'"
+    assert: "entity.height_m <= 2.75"
+    message: >
+      Pedestrian '{entity.name}' is {entity.height_m} m tall: the tallest
+      human in medical history was 2.72 m (Robert Wadlow).
+    units: { entity.height_m: "m" }
+    citation:
+      source: "Guinness World Records: tallest man ever, Robert Wadlow, 2.72 m (verified 1940)"
+      year: 1940
+      doi_or_url: "https://www.guinnessworldrecords.com/world-records/tallest-man-ever"
+    quantitative_basis: "Verified record 2.72 m."
+
+  - id: ENT-010
+    layer: L1
+    severity: warning
+    title: Pedestrian outside normal anthropometric envelope
+    scope: entity
+    when: "entity.category == 'pedestrian'"
+    assert: "entity.height_m <= 2.2 and entity.width_m <= 1.2 and entity.length_m <= 1.2"
+    message: >
+      Pedestrian '{entity.name}' bounding box
+      {entity.length_m}x{entity.width_m}x{entity.height_m} m exceeds the adult
+      standing envelope (~0.5 m depth x ~0.6 m shoulder width x <2.1 m height).
+    units: { entity.height_m: "m", entity.width_m: "m", entity.length_m: "m" }
+    citation:
+      source: "Anthropometric reference data (e.g., NHANES / ISO 7250 human body dimensions); adult stature P99 ~1.95-2.0 m"
+      year: 2021
+      doi_or_url: "https://www.cdc.gov/nchs/data/series/sr_03/sr03-046-508.pdf"
+    quantitative_basis: "P99 adult stature <2.0 m; 1.2 m width/depth margin covers arm spread and props."
+
+  - id: ENT-011
+    layer: L1
+    severity: warning
+    title: Bicycle outside production dimension envelope
+    scope: entity
+    when: "entity.category == 'bicycle'"
+    assert: "entity.length_m <= 2.2 and entity.width_m <= 0.9"
+    message: >
+      Bicycle '{entity.name}' bounding box {entity.length_m}x{entity.width_m} m:
+      bicycles are ~1.7-2.0 m long and <0.8 m wide at the handlebar (cargo
+      bikes excepted).
+    units: { entity.length_m: "m", entity.width_m: "m" }
+    citation:
+      source: "EN ISO 4210-2 (city/trekking bicycle geometry); typical bicycle overall dimensions"
+      year: 2015
+      doi_or_url: "https://www.iso.org/standard/79553.html"
+    quantitative_basis: "Standard bicycle length ~1.7-2.0 m, handlebar width 0.55-0.8 m."
+
+  - id: ENT-012
+    layer: L1
+    severity: warning
+    title: Passenger car mass outside production range
+    scope: entity
+    when: "entity.category == 'car'"
+    assert: "600 <= entity.mass_kg <= 3500"
+    message: >
+      Car '{entity.name}' declares mass = {entity.mass_kg} kg: passenger-car
+      kerb mass ranges ~0.7-3.2 t (light microcars to heavy EV SUVs); M1
+      category is capped at 3.5 t GVW.
+    units: { entity.mass_kg: "kg" }
+    citation:
+      source: "EU vehicle category M1 definition (Regulation (EU) 2018/858, GVW <= 3.5 t); EU type-approval kerb-mass data"
+      year: 2018
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32018R0858"
+    quantitative_basis: "M1 <= 3.5 t; lightest production cars ~600-700 kg."
+
+  - id: ENT-013
+    layer: L1
+    severity: warning
+    title: Heavy vehicle mass above legal gross-weight ceiling
+    scope: entity
+    when: "entity.category in ['truck', 'bus', 'semitrailer', 'trailer']"
+    assert: "entity.mass_kg <= 44000"
+    message: >
+      '{entity.name}' ({entity.category}) declares mass = {entity.mass_kg} kg:
+      the EU maximum authorized gross weight is 40 t (44 t intermodal) —
+      higher values are special-transport territory.
+    units: { entity.mass_kg: "kg" }
+    citation:
+      source: "Council Directive 96/53/EC, Annex I §2 (40 t road train / articulated; 44 t combined transport)"
+      year: 1996
+      doi_or_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053"
+    quantitative_basis: "Statutory GVW ceilings 40/44 t."

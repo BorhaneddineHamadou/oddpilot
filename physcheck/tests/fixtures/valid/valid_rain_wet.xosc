@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="moderate rain on a wet road, consistent couplings" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="road.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="ego_model" vehicleCategory="car" mass="1600">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="3" maxDeceleration="7"/>
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      <GlobalAction>
+      <EnvironmentAction>
+        <Environment name="Env">
+        <TimeOfDay animation="false" dateTime="2026-10-05T09:30:00"/>
+        <Weather fractionalCloudCover="sevenOktas" temperature="283.15">
+          <Sun azimuth="2.4" elevation="0.3" illuminance="12000"/>
+          <Precipitation precipitationType="rain" precipitationIntensity="6"/>
+          <Wind direction="1.2" speed="6"/>
+        </Weather>
+        <RoadCondition frictionScaleFactor="0.7" wetness="wetWithPuddles"/>
+        </Environment>
+      </EnvironmentAction>
+      </GlobalAction>
+      <Private entityRef="ego">
+        <PrivateAction><SpeedAction><SpeedActionDynamics dynamicsShape="linear" value="1" dynamicsDimension="time"/><SpeedActionTarget><AbsoluteTargetSpeed value="20"/></SpeedActionTarget></SpeedAction></PrivateAction>
+      </Private>
+      </Actions>
+    </Init>
+    <Story name="story">
+      <Act name="act">
+      <ManeuverGroup maximumExecutionCount="1" name="mg">
+        <Actors selectTriggeringEntities="false"><EntityRef entityRef="ego"/></Actors>
+        <Maneuver name="m">
+            <Event name="ev" priority="overwrite"><Action name="a"><PrivateAction><LaneChangeAction><LaneChangeActionDynamics dynamicsShape="sinusoidal" value="4.0" dynamicsDimension="time"/><LaneChangeTarget><RelativeTargetLane entityRef="ego" value="1"/></LaneChangeTarget></LaneChangeAction></PrivateAction></Action></Event>
+        </Maneuver>
+      </ManeuverGroup>
+      </Act>
+    </Story>
+  </Storyboard>
+</OpenSCENARIO>

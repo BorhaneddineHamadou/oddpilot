@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="physcheck fixture" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="road.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="p1">
+      <Pedestrian name="p1_model" model="human" pedestrianCategory="pedestrian">
+      </Pedestrian>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      </Actions>
+    </Init>
+    <Story name="story">
+      <Act name="act">
+      <ManeuverGroup maximumExecutionCount="1" name="mg">
+        <Actors selectTriggeringEntities="false"><EntityRef entityRef="p1"/></Actors>
+        <Maneuver name="m">
+            <Event name="ev" priority="overwrite"><Action name="a"><PrivateAction><SpeedAction><SpeedActionDynamics dynamicsShape="linear" value="6" dynamicsDimension="rate"/><SpeedActionTarget><AbsoluteTargetSpeed value="2"/></SpeedActionTarget></SpeedAction></PrivateAction></Action></Event>
+        </Maneuver>
+      </ManeuverGroup>
+      </Act>
+    </Story>
+  </Storyboard>
+</OpenSCENARIO>

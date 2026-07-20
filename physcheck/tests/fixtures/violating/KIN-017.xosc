@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="physcheck fixture" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="road.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="b1">
+      <Vehicle name="b1_model" vehicleCategory="bicycle">
+        <Performance maxSpeed="10" maxAcceleration="1" maxDeceleration="8"/>
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>

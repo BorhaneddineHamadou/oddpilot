@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="high summer sun at 2 am plus snow at +30 degC" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="road.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="ego_model" vehicleCategory="car">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.5" width="1.8" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="5" maxDeceleration="9"/>
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      <GlobalAction>
+      <EnvironmentAction>
+        <Environment name="Env">
+        <TimeOfDay animation="false" dateTime="2026-06-21T02:00:00"/>
+        <Weather fractionalCloudCover="zeroOktas" temperature="303.15">
+          <Sun azimuth="0.5" elevation="1.2" illuminance="140000"/>
+          <Precipitation precipitationType="snow" precipitationIntensity="8"/>
+        </Weather>
+        </Environment>
+      </EnvironmentAction>
+      </GlobalAction>
+      <Private entityRef="ego">
+        <PrivateAction><SpeedAction><SpeedActionDynamics dynamicsShape="linear" value="1" dynamicsDimension="time"/><SpeedActionTarget><AbsoluteTargetSpeed value="20"/></SpeedActionTarget></SpeedAction></PrivateAction>
+      </Private>
+      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>

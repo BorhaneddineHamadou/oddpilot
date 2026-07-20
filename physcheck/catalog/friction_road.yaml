@@ -1,0 +1,454 @@
+# Tire–road friction & surface-state rules (layer L1).
+# Attribute vocabulary: see docs/attribute_space.md. Derivation & rejected
+# candidates: docs/catalog_report.md §Friction.
+pack: friction_road
+version: "0.1.0"
+description: >
+  Constraints coupling precipitation, road wetness, friction scale factor
+  (OpenSCENARIO RoadCondition@frictionScaleFactor, dry-baseline multiplier with
+  mu_dry_ref ~= 0.9) and vehicle braking/acceleration capability.
+rules:
+  - id: FRI-001
+    layer: L1
+    severity: error
+    title: Wet or moist road cannot exceed dry-baseline friction
+    scope: scenario
+    when: "env.road.wetness != 'dry'"
+    assert: "env.road.friction_scale <= 1.0"
+    message: >
+      Road wetness is '{env.road.wetness}' but frictionScaleFactor =
+      {env.road.friction_scale} > 1.0: no published skid dataset shows wet
+      friction exceeding dry friction on the same surface.
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "Robert Bosch GmbH, Automotive Handbook, 4th ed., p. 330 (tire friction table); Hall, J.W. et al., Guide for Pavement Friction, NCHRP Web-Only Document 108, TRB"
+      year: 2009
+      doi_or_url: "https://doi.org/10.17226/23038"
+    quantitative_basis: >
+      Bosch: mu drops from ~0.85 (dry, 50 km/h) to ~0.65 with 0.2 mm water film
+      and ~0.55 with ~1 mm film.
+
+  - id: FRI-002
+    layer: L1
+    severity: warning
+    title: Dry road friction scale should be near 1
+    scope: scenario
+    when: "env.road.wetness == 'dry' and env.precip.type == 'dry'"
+    assert: "0.8 <= env.road.friction_scale <= 1.2"
+    message: >
+      Dry road with no precipitation but frictionScaleFactor =
+      {env.road.friction_scale}: dry paved-road peak friction is mu ~0.8-0.9
+      (up to ~1.2 for new performance tires), i.e. scale ~0.8-1.2 about the
+      dry baseline.
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "Warner, C.Y., Smith, G.C., James, M.B., Germane, G.J., Friction Applications in Accident Reconstruction, SAE Technical Paper 830612; Bosch Automotive Handbook, 4th ed., p. 330"
+      year: 1983
+      doi_or_url: "https://doi.org/10.4271/830612"
+    quantitative_basis: >
+      SAE 830612 skid tests: dry asphalt locked-wheel mu ~0.55-0.9, peak to
+      ~1.0; band 0.8-1.2 corresponds to mu ~0.72-1.08 about a 0.9 reference.
+
+  - id: FRI-003
+    layer: L1
+    severity: warning
+    title: Puddled wet road implies reduced friction
+    scope: scenario
+    when: "env.road.wetness == 'wetWithPuddles'"
+    assert: "env.road.friction_scale <= 0.9"
+    message: >
+      wetness = wetWithPuddles but frictionScaleFactor =
+      {env.road.friction_scale}: wet asphalt friction is ~0.55-0.9x dry.
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "Warner et al., SAE 830612 (wet asphalt locked-wheel mu ~0.45-0.8 vs dry ~0.55-0.9); Bosch Automotive Handbook, 4th ed., p. 330"
+      year: 1983
+      doi_or_url: "https://doi.org/10.4271/830612"
+    quantitative_basis: >
+      Bosch 'puddles, 2 mm water': mu 0.5 at 50 km/h, 0.05 at 90 km/h.
+
+  - id: FRI-004
+    layer: L1
+    severity: warning
+    title: Low-flooded road implies strongly reduced friction
+    scope: scenario
+    when: "env.road.wetness == 'lowFlooded'"
+    assert: "env.road.friction_scale <= 0.8"
+    message: >
+      wetness = lowFlooded but frictionScaleFactor = {env.road.friction_scale}:
+      standing water across the wheel path causes partial dynamic hydroplaning.
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "Horne, W.B., Dreher, R.C., Phenomena of Pneumatic Tire Hydroplaning, NASA TN D-2056, NASA Langley"
+      year: 1963
+      doi_or_url: "https://ntrs.nasa.gov/citations/19640000612"
+    quantitative_basis: >
+      At and above hydroplaning speed braking traction falls to near zero
+      (mu ~0.05); deeper films collapse friction at lower speeds
+      (Gallaway, FHWA-RD-79-31, 1979).
+
+  - id: FRI-005
+    layer: L1
+    severity: warning
+    title: High-flooded road implies hydroplaning-range friction
+    scope: scenario
+    when: "env.road.wetness == 'highFlooded'"
+    assert: "env.road.friction_scale <= 0.6"
+    message: >
+      wetness = highFlooded but frictionScaleFactor = {env.road.friction_scale}:
+      deep standing water implies partial-to-full hydroplaning friction.
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "Horne & Dreher, NASA TN D-2056; Gallaway, B.M. et al., Pavement and Geometric Design Criteria for Minimizing Hydroplaning, FHWA-RD-79-31, FHWA (1979)"
+      year: 1963
+      doi_or_url: "https://ntrs.nasa.gov/citations/19640000612"
+    quantitative_basis: >
+      Bosch 2 mm-water column: mu 0.5 -> 0.05 between 50 and 90 km/h.
+
+  - id: FRI-006
+    layer: L1
+    severity: error
+    title: Friction scale above physical tire grip ceiling
+    scope: scenario
+    when: "exists('env.road.friction_scale')"
+    assert: "env.road.friction_scale <= 1.3"
+    message: >
+      frictionScaleFactor = {env.road.friction_scale} > 1.3 exceeds the peak
+      grip of any production road tire even on ideal dry pavement
+      (mu ~0.9-1.2; 1.3 x mu_dry_ref 0.9 = 1.17).
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "Pacejka, H.B., Tire and Vehicle Dynamics, 3rd ed., Butterworth-Heinemann, Ch. 1; Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 10"
+      year: 2012
+      doi_or_url: "https://doi.org/10.1016/C2010-0-68548-8"
+    quantitative_basis: >
+      Peak mu for passenger tires on dry pavement ~0.9-1.2; higher values
+      require racing slicks/downforce, out of scope for road scenarios.
+
+  - id: FRI-007
+    layer: L1
+    severity: warning
+    title: Friction scale below wet-ice minimum
+    scope: scenario
+    when: "exists('env.road.friction_scale')"
+    assert: "env.road.friction_scale >= 0.05"
+    message: >
+      frictionScaleFactor = {env.road.friction_scale} < 0.05 is below the
+      lowest published sustained tire-road friction (wet smooth ice / full
+      hydroplaning, mu ~0.05).
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "Wallman, C.-G., Åström, H., Friction Measurement Methods and the Correlation Between Road Friction and Traffic Safety, VTI Meddelande 911A, Swedish National Road and Transport Research Institute"
+      year: 2001
+      doi_or_url: "https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf"
+    quantitative_basis: "Wet smooth ice mu >= ~0.05; full dynamic hydroplaning residual ~0.05."
+
+  - id: FRI-008
+    layer: L1
+    severity: error
+    title: Rain wets the road
+    scope: scenario
+    when: "env.precip.type == 'rain' and env.precip.intensity_mmh >= 0.5"
+    assert: "env.road.wetness != 'dry'"
+    message: >
+      Rain at {env.precip.intensity_mmh} mm/h with wetness = 'dry': water film
+      depth is a monotonically increasing function of rainfall intensity;
+      evaporation cannot keep pace with steady rain >= ~0.5 mm/h.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "Gallaway, B.M. et al., Pavement and Geometric Design Criteria for Minimizing Hydroplaning, FHWA-RD-79-31, FHWA (water film depth ~ I^0.59)"
+      year: 1979
+      doi_or_url: "https://rosap.ntl.bts.gov/view/dot/25555"
+    quantitative_basis: >
+      Gallaway water-film equation yields nonzero film depth for steady
+      I >= ~0.5 mm/h on real pavements.
+
+  - id: FRI-009
+    layer: L1
+    severity: error
+    title: Rain wets the road (OSC 1.0 unitless intensity)
+    scope: scenario
+    when: "env.precip.type == 'rain' and env.precip.intensity01 >= 0.1 and not exists('env.precip.intensity_mmh')"
+    assert: "env.road.wetness != 'dry'"
+    message: >
+      Rain (intensity {env.precip.intensity01} on the OSC 1.0 [0,1] scale) with
+      wetness = 'dry': steady rain wets the pavement within minutes.
+    units: { env.precip.intensity01: "-" }
+    citation:
+      source: "Gallaway, B.M. et al., FHWA-RD-79-31, FHWA"
+      year: 1979
+      doi_or_url: "https://rosap.ntl.bts.gov/view/dot/25555"
+    quantitative_basis: "As FRI-008; OSC 1.0 intensity has no physical unit (docs/decisions.md D6)."
+
+  - id: FRI-010
+    layer: L1
+    severity: warning
+    title: Heavy rain implies standing water, not mere moisture
+    scope: scenario
+    when: "env.precip.type == 'rain' and env.precip.intensity_mmh >= 10 and exists('env.road.wetness')"
+    assert: "env.road.wetness in ['wetWithPuddles', 'lowFlooded', 'highFlooded']"
+    message: >
+      Rain at {env.precip.intensity_mmh} mm/h but wetness =
+      '{env.road.wetness}': at ~10 mm/h with typical drainage lengths, water
+      film exceeds pavement texture depth, i.e. free standing water.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "Anderson, D.A. et al., PAVDRN: Computer Model for Predicting Water Film Thickness and Potential for Hydroplaning, Transportation Research Record 1599; Gallaway et al., FHWA-RD-79-31"
+      year: 1998
+      doi_or_url: "https://doi.org/10.3141/1599-11"
+    quantitative_basis: >
+      PAVDRN/Gallaway: I ~= 10 mm/h, drainage path >= 6 m, cross-slope 2% ->
+      film depth > texture depth (~0.5-1 mm).
+
+  - id: FRI-011
+    layer: L1
+    severity: warning
+    title: Flooded road at highway speed implies hydroplaning friction
+    scope: scenario
+    when: "env.road.wetness in ['lowFlooded', 'highFlooded'] and scenario.max_speed_mps >= 27"
+    assert: "env.road.friction_scale <= 0.4"
+    message: >
+      Flooded road with vehicle speeds up to {scenario.max_speed_mps} m/s but
+      frictionScaleFactor = {env.road.friction_scale}: above the hydroplaning
+      onset speed (~27 m/s for a 240 kPa passenger tire) wet grip collapses.
+    units: { scenario.max_speed_mps: "m/s", env.road.friction_scale: "-" }
+    citation:
+      source: "Horne & Dreher, NASA TN D-2056 (Vp[kt] = 9*sqrt(p[psi]) => ~98 km/h at 35 psi); Gallaway et al., FHWA-RD-79-31"
+      year: 1963
+      doi_or_url: "https://ntrs.nasa.gov/citations/19640000612"
+    quantitative_basis: >
+      Vp = 9*sqrt(35) ~= 53 kt ~= 27 m/s; above Vp braking friction ~0.05.
+      Flooded states imply water depth at/above the ~2.4 mm
+      hydroplaning-supporting depth.
+
+  - id: FRI-012
+    layer: L1
+    severity: warning
+    title: Wet friction drops with speed
+    scope: scenario
+    when: "env.road.wetness in ['wetWithPuddles', 'lowFlooded', 'highFlooded'] and scenario.max_speed_mps >= 25"
+    assert: "env.road.friction_scale <= 0.75"
+    message: >
+      Wet road with sustained speeds up to {scenario.max_speed_mps} m/s but
+      frictionScaleFactor = {env.road.friction_scale}: wet skid resistance
+      drops ~0.5-1% per km/h with speed.
+    units: { scenario.max_speed_mps: "m/s", env.road.friction_scale: "-" }
+    citation:
+      source: "Kummer, H.W., Meyer, W.E., Tentative Skid-Resistance Requirements for Main Rural Highways, NCHRP Report 37, Highway Research Board; Hall et al., NCHRP Web Doc 108 (Penn State friction-speed model)"
+      year: 1967
+      doi_or_url: "https://onlinepubs.trb.org/Onlinepubs/nchrp/nchrp_rpt_37.pdf"
+    quantitative_basis: >
+      Bosch: wet (1 mm) mu falls 0.55 -> 0.3 -> 0.2 at 50/90/130 km/h while dry
+      falls only 0.85 -> 0.75.
+
+  - id: FRI-013
+    layer: L1
+    severity: error
+    title: Braking capability exceeds friction limit of declared surface
+    scope: entity
+    when: "entity.kind == 'vehicle' and exists('entity.max_decel_mps2') and exists('env.road.friction_scale')"
+    assert: "entity.max_decel_mps2 <= env.road.friction_scale * 0.9 * 9.81 * 1.35"
+    message: >
+      Entity '{entity.name}' declares maxDeceleration = {entity.max_decel_mps2}
+      m/s^2 but the declared surface (frictionScaleFactor =
+      {env.road.friction_scale}, mu ~= {env.road.friction_scale} x 0.9) limits
+      braking to mu*g. Tolerance 1.35 covers tire-mu variability up to ~1.2
+      relative to the 0.9 dry reference, plus grade up to ~6%.
+    units: { entity.max_decel_mps2: "m/s^2", env.road.friction_scale: "-" }
+    citation:
+      source: "Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE International R-114, Ch. 3 'Braking Performance' (Dx_max = mu_p * g on level ground)"
+      year: 1992
+      doi_or_url: "https://doi.org/10.4271/R-114"
+    quantitative_basis: >
+      F_brake <= mu*N; on flat road N = m*g so a <= mu*g regardless of brake
+      power. Exceeding mu*g needs aerodynamic downforce.
+
+  - id: FRI-014
+    layer: L1
+    severity: warning
+    title: Full braking below type-approval minimum on dry road
+    scope: entity
+    when: "entity.category == 'car' and env.road.wetness == 'dry' and exists('entity.max_decel_mps2')"
+    assert: "entity.max_decel_mps2 >= 6.43"
+    message: >
+      Passenger car '{entity.name}' declares maxDeceleration =
+      {entity.max_decel_mps2} m/s^2 on a dry road: below the UN R13-H Type-0
+      service-brake requirement (mean fully developed deceleration >= 6.43
+      m/s^2) — models a defective vehicle.
+    units: { entity.max_decel_mps2: "m/s^2" }
+    citation:
+      source: "UN Regulation No. 13-H, Uniform provisions concerning the approval of passenger cars with regard to braking, UNECE, Annex 3 (Type-0 test)"
+      year: 2015
+      doi_or_url: "https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20"
+    quantitative_basis: >
+      R13-H Type-0: dm >= 6.43 m/s^2 from 100 km/h; US FMVSS 135 implies mean
+      decel >= 5.5 m/s^2.
+
+  - id: FRI-015
+    layer: L1
+    severity: error
+    title: Braking capability impossible on wet surface
+    scope: entity
+    when: "entity.kind == 'vehicle' and env.road.wetness in ['wetWithPuddles', 'lowFlooded', 'highFlooded'] and exists('entity.max_decel_mps2')"
+    assert: "entity.max_decel_mps2 <= 7.8"
+    message: >
+      Entity '{entity.name}' declares maxDeceleration = {entity.max_decel_mps2}
+      m/s^2 on a wet road: wet asphalt mu 0.5-0.8 bounds braking to ~4.9-7.8
+      m/s^2.
+    units: { entity.max_decel_mps2: "m/s^2" }
+    citation:
+      source: "Warner et al., Friction Applications in Accident Reconstruction, SAE 830612 (surface drag-factor tables); Gillespie, Fundamentals of Vehicle Dynamics, Ch. 3"
+      year: 1983
+      doi_or_url: "https://doi.org/10.4271/830612"
+    quantitative_basis: "mu*g with wet asphalt mu 0.5-0.8 -> 4.9-7.8 m/s^2."
+
+  - id: FRI-016
+    layer: L1
+    severity: error
+    title: Braking capability impossible on snow
+    scope: entity
+    when: "entity.kind == 'vehicle' and env.precip.type == 'snow' and env.temperature_c <= 0 and exists('entity.max_decel_mps2')"
+    assert: "entity.max_decel_mps2 <= 4.0"
+    message: >
+      Entity '{entity.name}' declares maxDeceleration = {entity.max_decel_mps2}
+      m/s^2 in snow at {env.temperature_c} degC: snow-covered road mu ~0.2-0.4
+      bounds braking to ~2-4 m/s^2.
+    units: { entity.max_decel_mps2: "m/s^2", env.temperature_c: "degC" }
+    citation:
+      source: "Wallman & Åström, VTI Meddelande 911A (packed snow mu ~0.2-0.3, loose snow ~0.2-0.5); Warner et al., SAE 830612 (packed snow 0.30-0.55)"
+      year: 2001
+      doi_or_url: "https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf"
+    quantitative_basis: "mu*g with snow mu 0.2-0.4 -> 2.0-3.9 m/s^2."
+
+  - id: FRI-017
+    layer: L1
+    severity: error
+    title: Snow-state friction scale on snowy road
+    scope: scenario
+    when: "env.precip.type == 'snow' and env.temperature_c <= 0 and exists('env.road.friction_scale')"
+    assert: "env.road.friction_scale <= 0.5"
+    message: >
+      Snow at {env.temperature_c} degC with frictionScaleFactor =
+      {env.road.friction_scale}: a snow-affected road has mu ~0.2-0.4
+      (scale <= ~0.5 of the 0.9 dry baseline).
+    units: { env.road.friction_scale: "-", env.temperature_c: "degC" }
+    citation:
+      source: "Wallman & Åström, VTI Meddelande 911A; Bosch Automotive Handbook 4th ed. p. 330 (snow mu ~0.2); Warner et al., SAE 830612"
+      year: 2001
+      doi_or_url: "https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf"
+    quantitative_basis: "Packed snow mu ~0.2-0.3, loose snow ~0.2-0.5; ratio to dry 0.9 gives <= ~0.5."
+
+  - id: FRI-018
+    layer: L1
+    severity: warning
+    title: Freezing wet road implies near-ice friction
+    scope: scenario
+    when: "env.temperature_c <= 0 and env.road.wetness in ['moist', 'wetWithPuddles', 'lowFlooded', 'highFlooded'] and exists('env.road.friction_scale')"
+    assert: "env.road.friction_scale <= 0.35"
+    message: >
+      Water on the road at {env.temperature_c} degC (icing conditions) with
+      frictionScaleFactor = {env.road.friction_scale}: glaze/wet ice has
+      mu ~0.05-0.25.
+    units: { env.road.friction_scale: "-", env.temperature_c: "degC" }
+    citation:
+      source: "Wallman & Åström, VTI Meddelande 911A (black ice mu ~0.1-0.15, wet ice ~0.05); Warner et al., SAE 830612 (smooth ice mu 0.10-0.25)"
+      year: 2001
+      doi_or_url: "https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf"
+    quantitative_basis: "0.35 x 0.9 = mu 0.315, generous for rough/sanded ice."
+
+  - id: FRI-019
+    layer: L1
+    severity: warning
+    title: Liquid water on road at deep-freeze temperature
+    scope: scenario
+    when: "env.road.wetness in ['moist', 'wetWithPuddles', 'lowFlooded', 'highFlooded']"
+    assert: "env.temperature_c > -10"
+    message: >
+      Road wetness '{env.road.wetness}' at {env.temperature_c} degC: liquid
+      water on a road surface at sustained air temperature below -10 degC is
+      implausible (road agencies stop liquid anti-icing below ~-10 degC).
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "Ketcham, S.A., Minsk, L.D., Blackburn, R.R., Fleege, E.J., Manual of Practice for an Effective Anti-icing Program, FHWA-RD-95-202, FHWA"
+      year: 1996
+      doi_or_url: "https://www.fhwa.dot.gov/reports/mopeap/eapcov.htm"
+    quantitative_basis: >
+      Practical anti-icing (NaCl) effectiveness limit ~-10 degC pavement
+      temperature.
+
+  - id: FRI-020
+    layer: L1
+    severity: error
+    title: Liquid water on road below brine eutectic
+    scope: scenario
+    when: "env.road.wetness in ['moist', 'wetWithPuddles', 'lowFlooded', 'highFlooded']"
+    assert: "env.temperature_c > -21"
+    message: >
+      Road wetness '{env.road.wetness}' at {env.temperature_c} degC: below the
+      NaCl eutectic (-21.1 degC) no salt-treated road keeps liquid water —
+      the declared surface state is physically impossible.
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "Ketcham et al., Manual of Practice for an Effective Anti-icing Program, FHWA-RD-95-202, FHWA (NaCl eutectic -21.1 degC at 23.3% concentration)"
+      year: 1996
+      doi_or_url: "https://www.fhwa.dot.gov/reports/mopeap/eapcov.htm"
+    quantitative_basis: "NaCl brine eutectic -21.1 degC is the lower bound for liquid water on treated roads."
+
+  - id: FRI-021
+    layer: L1
+    severity: warning
+    title: Rain at freezing temperature implies glaze-ice friction
+    scope: scenario
+    when: "env.precip.type == 'rain' and env.temperature_c <= 0 and exists('env.road.friction_scale')"
+    assert: "env.road.friction_scale <= 0.35"
+    message: >
+      Rain at {env.temperature_c} degC is freezing rain — it glazes the road
+      with ice (mu ~0.05-0.15), inconsistent with frictionScaleFactor =
+      {env.road.friction_scale}.
+    units: { env.road.friction_scale: "-", env.temperature_c: "degC" }
+    citation:
+      source: "Cortinas Jr., J.V., Bernstein, B.C., Robbins, C.C., Strapp, J.W., An Analysis of Freezing Rain, Freezing Drizzle, and Ice Pellets across the United States and Canada: 1976-90, Weather and Forecasting 19(2):377-390"
+      year: 2004
+      doi_or_url: "https://doi.org/10.1175/1520-0434(2004)019<0377:AAOFRF>2.0.CO;2"
+    quantitative_basis: "Freezing-rain surface temperatures overwhelmingly in [-10, 0] degC; glaze mu ~0.05-0.15 (VTI 911A)."
+
+  - id: FRI-022
+    layer: L1
+    severity: warning
+    title: Very low friction on a warm, dry, precipitation-free road
+    scope: scenario
+    when: "env.road.friction_scale <= 0.45 and env.temperature_c >= 10 and env.road.wetness == 'dry' and env.precip.type == 'dry'"
+    assert: "False"
+    message: >
+      frictionScaleFactor = {env.road.friction_scale} on a dry road at
+      {env.temperature_c} degC with no precipitation: no physical mechanism —
+      worst published dry-pavement friction (polished/bleeding asphalt) bottoms
+      out near mu ~0.4-0.55.
+    units: { env.road.friction_scale: "-", env.temperature_c: "degC" }
+    citation:
+      source: "Hall et al., Guide for Pavement Friction, NCHRP Web-Only Document 108, TRB; Warner et al., SAE 830612 (dry polished asphalt lower bound ~0.45-0.55)"
+      year: 2009
+      doi_or_url: "https://doi.org/10.17226/23038"
+    quantitative_basis: "Scale 0.45 x 0.9 = mu 0.4; lower dry values require undeclared contaminants (oil, mud)."
+
+  - id: FRI-023
+    layer: L1
+    severity: error
+    title: Traction-limited acceleration bound
+    scope: entity
+    when: "entity.kind == 'vehicle' and exists('entity.max_accel_mps2') and exists('env.road.friction_scale')"
+    assert: "entity.max_accel_mps2 <= env.road.friction_scale * 0.9 * 9.81 * 1.35"
+    message: >
+      Entity '{entity.name}' declares maxAcceleration = {entity.max_accel_mps2}
+      m/s^2 but traction on the declared surface (frictionScaleFactor =
+      {env.road.friction_scale}) bounds acceleration to mu*g even for AWD.
+      Tolerance 1.35 covers tire-mu variability up to ~1.2 relative to the 0.9
+      dry reference.
+    units: { entity.max_accel_mps2: "m/s^2", env.road.friction_scale: "-" }
+    citation:
+      source: "Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 2 'Acceleration Performance' (F_x,max = mu * W_driven)"
+      year: 1992
+      doi_or_url: "https://doi.org/10.4271/R-114"
+    quantitative_basis: >
+      a_max = mu*g*(W_driven/W); AWD fraction 1.0 gives the upper bound; 2WD
+      cars are ~0.5-0.65 of it.

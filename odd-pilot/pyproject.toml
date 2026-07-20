@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "odd-pilot"
+version = "0.0.1.dev0"
+description = "ODD-aware campaign copilot for scenario-based testing of ADS (SKELETON STUB — only physcheck is implemented)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "physcheck",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+odd-pilot = "oddpilot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

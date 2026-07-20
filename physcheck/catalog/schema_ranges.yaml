@@ -1,0 +1,221 @@
+# L0 schema-range & enum-membership rules, from the normative ASAM
+# OpenSCENARIO model documentation. Structural L0 checks (XML validity,
+# dangling references, version) are Python plugin rules (physcheck.engine.plugins).
+pack: schema_ranges
+version: "0.1.0"
+description: >
+  Normative value ranges and enumerations of the OpenSCENARIO 1.x schema.
+  Violations are spec errors regardless of physics.
+rules:
+  - id: SCH-101
+    layer: L0
+    severity: error
+    title: OSC 1.0 precipitation intensity outside [0, 1]
+    scope: scenario
+    when: "exists('env.precip.intensity01')"
+    assert: "0 <= env.precip.intensity01 <= 1"
+    message: "OSC 1.0 Precipitation@intensity = {env.precip.intensity01}: normative range [0..1]."
+    units: { env.precip.intensity01: "-" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.0.0 Model Documentation, class Precipitation (intensity: double, Range [0..1])"
+      year: 2020
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Precipitation.html"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-102
+    layer: L0
+    severity: error
+    title: Precipitation intensity (mm/h) negative
+    scope: scenario
+    when: "exists('env.precip.intensity_mmh')"
+    assert: "env.precip.intensity_mmh >= 0"
+    message: "precipitationIntensity = {env.precip.intensity_mmh} mm/h: normative range [0..inf[."
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.2.0 Model Documentation, class Precipitation (precipitationIntensity: double, mm/h, Range [0..inf[)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-103
+    layer: L0
+    severity: error
+    title: Precipitation type not a valid enum value
+    scope: scenario
+    when: "exists('env.precip.type')"
+    assert: "env.precip.type in ['dry', 'rain', 'snow']"
+    message: "precipitationType = '{env.precip.type}': PrecipitationType is one of dry|rain|snow."
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, enumeration PrecipitationType"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative enumeration."
+
+  - id: SCH-104
+    layer: L0
+    severity: error
+    title: Cloud state not a valid enum value
+    scope: scenario
+    when: "exists('env.cloud.state')"
+    assert: "env.cloud.state in ['skyOff', 'free', 'cloudy', 'overcast', 'rainy']"
+    message: "cloudState = '{env.cloud.state}': CloudState is one of skyOff|free|cloudy|overcast|rainy (OSC <= 1.1)."
+    citation:
+      source: "ASAM OpenSCENARIO 1.0/1.1 Model Documentation, enumeration CloudState (deprecated in 1.2 in favor of FractionalCloudCover)"
+      year: 2021
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative enumeration."
+
+  - id: SCH-105
+    layer: L0
+    severity: error
+    title: Road wetness not a valid enum value
+    scope: scenario
+    when: "exists('env.road.wetness')"
+    assert: "env.road.wetness in ['dry', 'moist', 'wetWithPuddles', 'lowFlooded', 'highFlooded']"
+    message: "wetness = '{env.road.wetness}': Wetness is one of dry|moist|wetWithPuddles|lowFlooded|highFlooded (OSC >= 1.2)."
+    citation:
+      source: "ASAM OpenSCENARIO 1.2 Model Documentation, enumeration Wetness"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative enumeration."
+
+  - id: SCH-106
+    layer: L0
+    severity: error
+    title: Fog visual range not positive
+    scope: scenario
+    when: "env.fog.present"
+    assert: "env.fog.visual_range_m > 0"
+    message: "Fog@visualRange = {env.fog.visual_range_m} m: normative range ]0..inf[."
+    units: { env.fog.visual_range_m: "m" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, class Fog (visualRange: double, m, Range [0..inf[)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-107
+    layer: L0
+    severity: error
+    title: Friction scale factor not positive
+    scope: scenario
+    when: "exists('env.road.friction_scale')"
+    assert: "env.road.friction_scale > 0"
+    message: "frictionScaleFactor = {env.road.friction_scale}: normative range ]0..inf[."
+    units: { env.road.friction_scale: "-" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, class RoadCondition (frictionScaleFactor: double, Range ]0..inf[)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-108
+    layer: L0
+    severity: error
+    title: Weather temperature outside schema range
+    scope: scenario
+    when: "exists('env.temperature_k')"
+    assert: "170 <= env.temperature_k <= 340"
+    message: "Weather@temperature = {env.temperature_k} K: normative range [170..340] K (OSC >= 1.1)."
+    units: { env.temperature_k: "K" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.1+ Model Documentation, class Weather (temperature: double, K, Range [170..340], since 1.1)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-109
+    layer: L0
+    severity: error
+    title: Atmospheric pressure outside schema range
+    scope: scenario
+    when: "exists('env.pressure_pa')"
+    assert: "80000 <= env.pressure_pa <= 120000"
+    message: "Weather@atmosphericPressure = {env.pressure_pa} Pa: normative range [80000..120000] Pa (OSC >= 1.1)."
+    units: { env.pressure_pa: "Pa" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.1+ Model Documentation, class Weather (atmosphericPressure: double, Pa, Range [80000..120000], since 1.1)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-110
+    layer: L0
+    severity: error
+    title: Sun elevation outside schema range
+    scope: scenario
+    when: "exists('env.sun.elevation_rad')"
+    assert: "-3.1416 <= env.sun.elevation_rad <= 3.1416"
+    message: "Sun@elevation = {env.sun.elevation_rad} rad: normative range [-PI..PI] (physics further requires [-PI/2..PI/2], see SOL-001)."
+    units: { env.sun.elevation_rad: "rad" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.0 Model Documentation, class Sun (elevation: double, rad, Range [-PI..PI])"
+      year: 2020
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-111
+    layer: L0
+    severity: error
+    title: Entity speed negative
+    scope: entity
+    when: "exists('entity.max_target_speed_mps')"
+    assert: "entity.max_target_speed_mps >= 0"
+    message: "Entity '{entity.name}' commanded/initial speed {entity.max_target_speed_mps} m/s is negative: AbsoluteTargetSpeed value is a non-negative speed."
+    units: { entity.max_target_speed_mps: "m/s" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, class AbsoluteTargetSpeed (value: speed in m/s, Range [0..inf[)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range."
+
+  - id: SCH-112
+    layer: L0
+    severity: error
+    title: Bounding box with non-positive dimensions
+    scope: entity
+    when: "exists('entity.length_m')"
+    assert: "entity.length_m > 0 and entity.width_m > 0 and entity.height_m > 0"
+    message: >
+      Entity '{entity.name}' bounding box
+      {entity.length_m}x{entity.width_m}x{entity.height_m} m has a
+      non-positive dimension.
+    units: { entity.length_m: "m" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, class Dimensions (length/width/height: double, m, Range [0..inf[)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range (degenerate boxes break collision semantics)."
+
+  - id: SCH-113
+    layer: L0
+    severity: error
+    title: Performance values non-positive or negative
+    scope: entity
+    when: "exists('entity.max_speed_mps')"
+    assert: "entity.max_speed_mps >= 0 and entity.max_accel_mps2 >= 0 and entity.max_decel_mps2 >= 0"
+    message: >
+      Entity '{entity.name}' Performance (maxSpeed={entity.max_speed_mps},
+      maxAcceleration={entity.max_accel_mps2},
+      maxDeceleration={entity.max_decel_mps2}) contains a negative value.
+    units: { entity.max_speed_mps: "m/s" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, class Performance (maxSpeed/maxAcceleration/maxDeceleration: double, Range [0..inf[)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema ranges."
+
+  - id: SCH-114
+    layer: L0
+    severity: error
+    title: Entity mass non-positive
+    scope: entity
+    when: "exists('entity.mass_kg')"
+    assert: "entity.mass_kg > 0"
+    message: "Entity '{entity.name}' mass = {entity.mass_kg} kg: mass must be positive."
+    units: { entity.mass_kg: "kg" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.x Model Documentation, Vehicle/Pedestrian mass (kg, Range [0..inf[)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Normative schema range."

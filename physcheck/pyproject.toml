@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "physcheck"
+version = "0.1.0"
+description = "Layered physical-plausibility linter for ASAM OpenSCENARIO 1.x scenarios, with a fully cited rule catalog"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "odd-pilot contributors" }]
+keywords = ["OpenSCENARIO", "ADS", "scenario-based-testing", "linter", "SOTIF", "ODD"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "hypothesis>=6.0",
+    "mypy>=1.8,<2",
+    "ruff>=0.4",
+    "types-PyYAML",
+]
+
+[project.scripts]
+physcheck = "physcheck.cli:entrypoint"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+physcheck = ["catalog/*.yaml", "py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["SIM108"]  # ternary rewrites can hurt readability in predicate code
+
+[tool.ruff.lint.per-file-ignores]
+"tests/gen_fixtures.py" = ["E501"]  # fixture tables read better unwrapped
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

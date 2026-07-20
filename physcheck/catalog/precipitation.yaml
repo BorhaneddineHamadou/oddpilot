@@ -1,0 +1,321 @@
+# Precipitation microphysics & atmospheric thermodynamics rules (layer L1).
+# Derivation & rejected candidates: docs/catalog_report.md §Precipitation.
+pack: precipitation
+version: "0.1.0"
+description: >
+  Bounds and couplings for precipitation type/intensity, temperature, cloud
+  cover and wind, from WMO/AMS definitions, record archives and phase-
+  partitioning climatologies.
+rules:
+  - id: PRE-001
+    layer: L1
+    severity: error
+    title: Precipitation type dry with nonzero intensity
+    scope: scenario
+    when: "env.precip.type == 'dry'"
+    assert: >-
+      not ((exists('env.precip.intensity_mmh') and env.precip.intensity_mmh > 0)
+      or (exists('env.precip.intensity01') and env.precip.intensity01 > 0))
+    message: >
+      precipitationType = 'dry' with nonzero intensity: self-contradictory —
+      precipitation is by definition an ensemble of falling hydrometeors.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.2 Model Documentation, class Precipitation; WMO, International Cloud Atlas (WMO-No. 407), hydrometeor definitions"
+      year: 2017
+      doi_or_url: "https://cloudatlas.wmo.int/en/hydrometeors-falling-particles.html"
+    quantitative_basis: "Definitional consistency of the ASAM enumeration with the WMO definition."
+
+  - id: PRE-002
+    layer: L1
+    severity: warning
+    title: Rain or snow declared with zero intensity
+    scope: scenario
+    when: "env.precip.type in ['rain', 'snow'] and (exists('env.precip.intensity_mmh') or exists('env.precip.intensity01'))"
+    assert: >-
+      (exists('env.precip.intensity_mmh') and env.precip.intensity_mmh > 0)
+      or (exists('env.precip.intensity01') and env.precip.intensity01 > 0)
+    message: >
+      precipitationType = '{env.precip.type}' with intensity 0:
+      self-contradictory (a common 'switched-off rain' idiom — declare 'dry'
+      instead).
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.2 Model Documentation, class Precipitation; WMO-No. 407 precipitation definition"
+      year: 2017
+      doi_or_url: "https://cloudatlas.wmo.int/en/hydrometeors-falling-particles.html"
+    quantitative_basis: "Definitional."
+
+  - id: PRE-003
+    layer: L1
+    severity: warning
+    title: Rain rate in the violent-cloudburst class
+    scope: scenario
+    when: "env.precip.type == 'rain'"
+    assert: "env.precip.intensity_mmh <= 50"
+    message: >
+      Rain at {env.precip.intensity_mmh} mm/h: above the top ('violent') class
+      boundary of the Met Office/WMO intensity scales — deliberate
+      extreme-weather testing territory.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "UK Met Office, National Meteorological Library Fact Sheet 3, Water in the atmosphere (rain intensity classes); WMO Aviation Hazards - Precipitation (violent showers > 50 mm/h)"
+      year: 2012
+      doi_or_url: "https://community.wmo.int/site/knowledge-hub/programmes-and-initiatives/aviation/aviation-hazards-precipitation"
+    quantitative_basis: "Class bounds 2/10/50 mm/h (showers); heavy rain > 4 mm/h (dynamic rain)."
+
+  - id: PRE-004
+    layer: L1
+    severity: error
+    title: Rain rate beyond the world-record sustained rate
+    scope: scenario
+    when: "env.precip.type == 'rain'"
+    assert: "env.precip.intensity_mmh <= 436"
+    message: >
+      Rain at {env.precip.intensity_mmh} mm/h: exceeds the world-record
+      42-minute average (305 mm in 42 min = 435.7 mm/h, Holt, Missouri, 1947)
+      — beyond all recorded point rainfall at scenario-relevant durations.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "Lott, G.A., The world-record 42-minute Holt, Missouri, rainstorm, Monthly Weather Review 82(2):50-59"
+      year: 1954
+      doi_or_url: "https://doi.org/10.1175/1520-0493(1954)082<0050:TWMHMR>2.0.CO;2"
+    quantitative_basis: "305 mm / 42 min = 435.7 mm/h."
+
+  - id: PRE-005
+    layer: L1
+    severity: error
+    title: Precipitation rate beyond the one-minute world record
+    scope: scenario
+    when: "env.precip.type in ['rain', 'snow']"
+    assert: "env.precip.intensity_mmh <= 1872"
+    message: >
+      Precipitation at {env.precip.intensity_mmh} mm/h: exceeds the WMO-
+      recognized one-minute world record (31.2 mm in 1 min = 1872 mm/h,
+      Unionville, MD, 1956) — beyond any recorded value at any duration.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "U.S. Weather Bureau, World record one-minute rainfall at Unionville, Maryland, Monthly Weather Review 87(8):303-306 (1959); WMO World Weather and Climate Extremes Archive"
+      year: 1959
+      doi_or_url: "https://wmo.asu.edu/content/world-greatest-one-minute-rainfall"
+    quantitative_basis: "WMO-ratified 1-minute record 31.2 mm."
+
+  - id: PRE-006
+    layer: L1
+    severity: warning
+    title: Snowfall liquid-equivalent rate in extreme lake-effect territory
+    scope: scenario
+    when: "env.precip.type == 'snow'"
+    assert: "env.precip.intensity_mmh <= 10"
+    message: >
+      Snow at {env.precip.intensity_mmh} mm/h liquid-equivalent: typical heavy
+      snow is 1-3 mm/h LE; ~10 mm/h occurs only in extreme
+      lake-effect/orographic bands.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "Rasmussen, R.M. et al., The Estimation of Snowfall Rate Using Visibility, Journal of Applied Meteorology 38(10):1542-1563"
+      year: 1999
+      doi_or_url: "https://doi.org/10.1175/1520-0450(1999)038<1542:TEOSRU>2.0.CO;2"
+    quantitative_basis: "Heavy snow LE rates order 1-3 mm/h; extreme bands ~10 mm/h."
+
+  - id: PRE-007
+    layer: L1
+    severity: error
+    title: Snowfall liquid-equivalent rate beyond anything recorded
+    scope: scenario
+    when: "env.precip.type == 'snow'"
+    assert: "env.precip.intensity_mmh <= 50"
+    message: >
+      Snow at {env.precip.intensity_mmh} mm/h liquid-equivalent: the record
+      hourly snowfall (30.5 cm/h, Copenhagen NY 1966) corresponds to ~30 mm/h
+      LE at a 10:1 ratio; 50 mm/h LE snow has never been observed.
+    units: { env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "Rasmussen, R.M. et al., J. Appl. Meteor. 38:1542-1563 (1999); NWS record snowfall-rate documentation (Copenhagen, NY, 2 Dec 1966)"
+      year: 1999
+      doi_or_url: "https://doi.org/10.1175/1520-0450(1999)038<1542:TEOSRU>2.0.CO;2"
+    quantitative_basis: "Record ~30 mm/h LE; 50 mm/h never observed for snow."
+
+  - id: PRE-008
+    layer: L1
+    severity: warning
+    title: Rain at sub-freezing temperature is freezing rain
+    scope: scenario
+    when: "env.precip.type == 'rain'"
+    assert: "env.temperature_c >= 0"
+    message: >
+      Rain at {env.temperature_c} degC: liquid precipitation below 0 degC is
+      freezing rain — an icing hazard with different sensor/friction physics
+      than plain rain; should be deliberate.
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "Cortinas Jr., J.V., Bernstein, B.C., Robbins, C.C., Strapp, J.W., An Analysis of Freezing Rain, Freezing Drizzle, and Ice Pellets across the United States and Canada: 1976-90, Weather and Forecasting 19(2):377-390"
+      year: 2004
+      doi_or_url: "https://doi.org/10.1175/1520-0434(2004)019<0377:AAOFRF>2.0.CO;2"
+    quantitative_basis: "Freezing precipitation concentrates within a few degrees below freezing."
+
+  - id: PRE-009
+    layer: L1
+    severity: error
+    title: Rain at deep-freeze temperature
+    scope: scenario
+    when: "env.precip.type == 'rain'"
+    assert: "env.temperature_c >= -12"
+    message: >
+      Rain at {env.temperature_c} degC: the melting layer required for
+      (freezing) rain cannot persist over such cold surface air; observed
+      freezing-rain events concentrate in [-10, 0] degC.
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "Cortinas Jr. et al., Weather and Forecasting 19(2):377-390 (2004); Lu, G. et al., Occurrence of Warm Freezing Rain, J. Geophys. Res. Atmospheres 127 (2022)"
+      year: 2004
+      doi_or_url: "https://doi.org/10.1029/2021JD036242"
+    quantitative_basis: "9312-event climatology: surface temperatures overwhelmingly in [-10, 0] degC."
+
+  - id: PRE-010
+    layer: L1
+    severity: warning
+    title: Snow above the 95th-percentile rain-snow threshold
+    scope: scenario
+    when: "env.precip.type == 'snow'"
+    assert: "env.temperature_c <= 2.4"
+    message: >
+      Snow at {env.temperature_c} degC: the Northern-Hemisphere 50% rain-snow
+      threshold averages +1.0 degC, with 95% of stations below +2.4 degC.
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "Jennings, K.S., Winchell, T.S., Livneh, B., Molotch, N.P., Spatial variation of the rain-snow temperature threshold across the Northern Hemisphere, Nature Communications 9:1148"
+      year: 2018
+      doi_or_url: "https://doi.org/10.1038/s41467-018-03629-7"
+    quantitative_basis: "17.8 M observations: mean threshold 1.0 degC; 95% range -0.4..+2.4 degC."
+
+  - id: PRE-011
+    layer: L1
+    severity: error
+    title: Snow at temperature where snow probability is zero
+    scope: scenario
+    when: "env.precip.type == 'snow'"
+    assert: "env.temperature_c <= 6.1"
+    message: >
+      Snow at {env.temperature_c} degC: surface-observation analysis puts the
+      probability of snow at ~0% above 6.1 degC (rare desert-dry-air
+      exceptions require humidity OSC cannot declare).
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "Auer, A.H. Jr., The Rain versus Snow Threshold Temperatures, Weatherwise 27(2):67"
+      year: 1974
+      doi_or_url: "https://doi.org/10.1080/00431672.1974.9931684"
+    quantitative_basis: "Probability of snow ~50% at 2.5 degC, ~0% at 6.1 degC."
+
+  - id: PRE-012
+    layer: L1
+    severity: error
+    title: Precipitation from a cloud-free sky
+    scope: scenario
+    when: >-
+      env.precip.type in ['rain', 'snow']
+      and ((exists('env.precip.intensity_mmh') and env.precip.intensity_mmh > 0)
+      or (exists('env.precip.intensity01') and env.precip.intensity01 > 0))
+    assert: >-
+      not ((exists('env.cloud.oktas') and env.cloud.oktas == 0)
+      or (exists('env.cloud.state') and env.cloud.state == 'free'))
+    message: >
+      {env.precip.type} declared with a cloud-free sky: precipitation is by
+      definition a hydrometeor falling from a cloud ('serein' is classified by
+      AMS as a doubtful phenomenon).
+    units: { env.cloud.oktas: "okta" }
+    citation:
+      source: "WMO, International Cloud Atlas (WMO-No. 407), 2017: rain is 'precipitation of drops of water... which falls from a cloud'; AMS Glossary, 'serein'"
+      year: 2017
+      doi_or_url: "https://cloudatlas.wmo.int/en/rain.html"
+    quantitative_basis: "Definitional: no cloud => no precipitation source."
+
+  - id: PRE-013
+    layer: L1
+    severity: warning
+    title: Heavy precipitation with mostly clear sky
+    scope: scenario
+    when: "env.precip.intensity_mmh >= 10"
+    assert: "env.cloud.oktas >= 4"
+    message: >
+      Precipitation at {env.precip.intensity_mmh} mm/h with cloud cover
+      {env.cloud.oktas} oktas: heavy rates come from deep nimbostratus or
+      cumulonimbus that dominate the local sky.
+    units: { env.precip.intensity_mmh: "mm/h", env.cloud.oktas: "okta" }
+    citation:
+      source: "WMO, International Cloud Atlas (WMO-No. 407), associated cloud forms table (precipitation vs producing genera Ns/Cb)"
+      year: 2017
+      doi_or_url: "https://cloudatlas.wmo.int/en/associated-cloud-forms-table.html"
+    quantitative_basis: "Heavy rates require Ns/Cb overhead; conservative 4-okta bound, warning severity."
+
+  - id: PRE-014
+    layer: L1
+    severity: error
+    title: Air temperature outside recorded Earth extremes
+    scope: scenario
+    when: "exists('env.temperature_c')"
+    assert: "-89.2 <= env.temperature_c <= 56.7"
+    message: >
+      Air temperature {env.temperature_c} degC: outside the WMO-verified
+      global surface extremes (-89.2 degC Vostok 1983; +56.7 degC Death Valley
+      1913).
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "WMO World Weather and Climate Extremes Archive (Arizona State University), Records of Weather and Climate Extremes"
+      year: 2024
+      doi_or_url: "https://wmo.asu.edu/content/world-meteorological-organization-global-weather-climate-extremes-archive"
+    quantitative_basis: "WMO-ratified global temperature extremes."
+
+  - id: PRE-015
+    layer: L1
+    severity: info
+    title: Crosswind above the vehicle-control difficulty threshold
+    scope: scenario
+    when: "exists('env.wind.speed_mps')"
+    assert: "env.wind.speed_mps <= 17.5"
+    message: >
+      Wind speed {env.wind.speed_mps} m/s: above ~17.5 m/s gusts, high-sided
+      vehicles become difficult to control (wind-barrier design criteria
+      restrict traffic at 17.5 and stop it at 22.5 m/s) — a deliberate
+      adverse-weather test condition.
+    units: { env.wind.speed_mps: "m/s" }
+    citation:
+      source: "Coleman, S.A. & Baker, C.J., Design criteria of wind barriers for traffic. Part 1: Wind barrier performance, Journal of Wind Engineering and Industrial Aerodynamics"
+      year: 1994
+      doi_or_url: "https://doi.org/10.1016/0167-6105(94)90067-1"
+    quantitative_basis: "Control difficulty >17.5 m/s; accidents observed ~20 m/s crosswind (Han et al. 2019)."
+
+  - id: PRE-016
+    layer: L1
+    severity: warning
+    title: Hurricane-force wind in a driving scenario
+    scope: scenario
+    when: "exists('env.wind.speed_mps')"
+    assert: "env.wind.speed_mps < 32.7"
+    message: >
+      Wind speed {env.wind.speed_mps} m/s: at or above Beaufort force 12
+      ('hurricane force', >= 32.7 m/s) — almost certainly unintended for
+      nominal traffic.
+    units: { env.wind.speed_mps: "m/s" }
+    citation:
+      source: "WMO Beaufort wind-scale speed equivalents (Manual on Codes, WMO-No. 306); Met Office Beaufort scale tabulation"
+      year: 2019
+      doi_or_url: "https://weather.metoffice.gov.uk/guides/coast-and-sea/beaufort-scale"
+    quantitative_basis: "Force 12 begins at 32.7 m/s (v = 0.836 B^1.5)."
+
+  - id: PRE-017
+    layer: L1
+    severity: error
+    title: Wind above the world-record surface gust
+    scope: scenario
+    when: "exists('env.wind.speed_mps')"
+    assert: "env.wind.speed_mps <= 113.3"
+    message: >
+      Wind speed {env.wind.speed_mps} m/s: exceeds the WMO-ratified world
+      record surface gust (113.3 m/s, Barrow Island, cyclone Olivia, 1996).
+    units: { env.wind.speed_mps: "m/s" }
+    citation:
+      source: "Courtney, J. et al., Documentation and verification of the world extreme wind gust record: 113.3 m/s on Barrow Island, Australia, Australian Meteorological and Oceanographic Journal 62:1-9"
+      year: 2012
+      doi_or_url: "https://doi.org/10.22499/2.6201.001"
+    quantitative_basis: "WMO-ratified 3-s gust record 113.3 m/s; sustained maxima are lower."

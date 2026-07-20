@@ -1,0 +1,143 @@
+# Atmospheric optics & visibility rules (layer L1).
+# Derivation & rejected candidates: docs/catalog_report.md §Atmosphere.
+pack: atmosphere
+version: "0.1.0"
+description: >
+  Constraints coupling fog visual range, precipitation, cloud cover and
+  illumination, from atmospheric-optics primary literature (Koschmieder,
+  Middleton, Rasmussen, WMO/AMS definitions).
+rules:
+  - id: ATM-001
+    layer: L1
+    severity: warning
+    title: Fog declared but visual range is not fog
+    scope: scenario
+    when: "env.fog.present"
+    assert: "env.fog.visual_range_m < 1000"
+    message: >
+      A Fog element is declared with visualRange = {env.fog.visual_range_m} m:
+      by WMO/AMS definition fog means visibility < 1 km (mist: 1-5 km). A Fog
+      element used as a clear-sky idiom (large visualRange) should be omitted
+      instead — 'dense fog with unlimited visibility' is the canonical
+      implausible-scenario pattern.
+    units: { env.fog.visual_range_m: "m" }
+    citation:
+      source: "American Meteorological Society, 'fog', Glossary of Meteorology, 2nd ed.; WMO, Guide to Instruments and Methods of Observation, WMO-No. 8, Vol. I, Ch. 9 (Measurement of visibility)"
+      year: 2021
+      doi_or_url: "https://glossary.ametsoc.org/wiki/Fog"
+    quantitative_basis: "Aeronautical code FG requires MOR < 1000 m; BR (mist) 1000-5000 m."
+
+  - id: ATM-002
+    layer: L1
+    severity: error
+    title: Visual range beyond the Rayleigh-scattering limit of air
+    scope: scenario
+    when: "env.fog.present"
+    assert: "env.fog.visual_range_m <= 350000"
+    message: >
+      visualRange = {env.fog.visual_range_m} m exceeds the physical visibility
+      ceiling of particle-free air (~250-340 km set by Rayleigh scattering).
+    units: { env.fog.visual_range_m: "m" }
+    citation:
+      source: "Penndorf, R., Tables of the refractive index for standard air and the Rayleigh scattering coefficient..., Journal of the Optical Society of America 47(2):176-182; Middleton, W.E.K., Vision Through the Atmosphere, Univ. of Toronto Press (1952)"
+      year: 1957
+      doi_or_url: "https://doi.org/10.1364/JOSA.47.000176"
+    quantitative_basis: >
+      Rayleigh beta ~0.0116 km^-1 at 550 nm sea level: max MOR = 2.996/0.0116
+      ~258 km (WMO eps=0.05) or 3.912/0.0116 ~337 km (classical eps=0.02).
+
+  - id: ATM-003
+    layer: L1
+    severity: warning
+    title: Visual range too high for the declared rain rate
+    scope: scenario
+    when: "env.precip.type == 'rain' and env.precip.intensity_mmh >= 5 and env.fog.present"
+    assert: "env.fog.visual_range_m <= 40000 * env.precip.intensity_mmh ** -0.55"
+    message: >
+      Rain at {env.precip.intensity_mmh} mm/h with visualRange =
+      {env.fog.visual_range_m} m: published rain-extinction laws
+      (sigma = a*R^b, a in [0.15,0.38], b in [0.55,0.70]) bound visibility well
+      below this even in the weakest-extinction case (2x tolerance applied).
+    units: { env.fog.visual_range_m: "m", env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "Atlas, D., Optical extinction by rainfall, Journal of Meteorology 10(6):486-488; disdrometer sigma-R studies (Atmosfera 39, 2025)"
+      year: 1953
+      doi_or_url: "https://doi.org/10.1175/1520-0469(1953)010<0486:OEBR>2.0.CO;2"
+    quantitative_basis: >
+      Weakest corner (a=0.15, b=0.55) with WMO MOR = 2.996/sigma gives
+      ~19.97*R^-0.55 km; predicate doubles it. At R=50 mm/h the bound is
+      ~4.6 km; a declared 10 km is flagged.
+
+  - id: ATM-004
+    layer: L1
+    severity: warning
+    title: Visual range too high for the declared snowfall rate
+    scope: scenario
+    when: "env.precip.type == 'snow' and env.precip.intensity_mmh >= 0.5 and env.fog.present"
+    assert: "env.fog.visual_range_m <= 10000 / env.precip.intensity_mmh"
+    message: >
+      Snow at {env.precip.intensity_mmh} mm/h liquid-equivalent with
+      visualRange = {env.fog.visual_range_m} m: visibility in snowfall is
+      ~1/S km with a factor 3-10 spread; the predicate uses the 10x generous
+      envelope.
+    units: { env.fog.visual_range_m: "m", env.precip.intensity_mmh: "mm/h" }
+    citation:
+      source: "Rasmussen, R.M., Vivekanandan, J., Cole, J., Myers, B., Masters, C., The Estimation of Snowfall Rate Using Visibility, Journal of Applied Meteorology 38(10):1542-1563"
+      year: 1999
+      doi_or_url: "https://doi.org/10.1175/1520-0450(1999)038<1542:TEOSRU>2.0.CO;2"
+    quantitative_basis: "At 1 mm/h LE, visibility ~1 km; inverse proportionality with crystal-type spread 3-10x."
+
+  - id: ATM-005
+    layer: L1
+    severity: warning
+    title: Liquid fog below the homogeneous freezing point
+    scope: scenario
+    when: "env.fog.present and env.fog.visual_range_m < 1000"
+    assert: "env.temperature_c >= -40"
+    message: >
+      Fog at {env.temperature_c} degC: liquid (supercooled-droplet) fog cannot
+      exist below ~-38 degC (homogeneous freezing); such scenes are ice fog,
+      which OpenSCENARIO cannot declare — flag for review.
+    units: { env.temperature_c: "degC" }
+    citation:
+      source: "Pruppacher, H.R. & Klett, J.D., Microphysics of Clouds and Precipitation, 2nd ed., Kluwer (homogeneous freezing ~-38 degC); AMS Glossary, 'ice fog'"
+      year: 1997
+      doi_or_url: "https://doi.org/10.1007/978-0-306-48100-0"
+    quantitative_basis: "Homogeneous nucleation eliminates liquid droplets below ~-38 degC."
+
+  - id: ATM-006
+    layer: L1
+    severity: warning
+    title: Overcast sky with clear-sky sun illuminance
+    scope: scenario
+    when: "env.cloud.oktas >= 8 and env.sun.elevation_rad >= 0.1745"
+    assert: "env.sun.illuminance_lux <= 50000"
+    message: >
+      Cloud cover {env.cloud.oktas} oktas (overcast) with sun illuminance =
+      {env.sun.illuminance_lux} lux: overcast reduces ground illuminance to
+      ~1/3-1/20 of clear-sky (~100 klux at high sun -> typically 5-20 klux),
+      and the CIE overcast sky has no direct beam.
+    units: { env.sun.illuminance_lux: "lux", env.cloud.oktas: "okta" }
+    citation:
+      source: "CIE S 011/E:2003 (ISO 15469:2004) Standard General Sky; IESNA Lighting Handbook 10th ed. (daylight availability); Littlefair, P.J., The luminous efficacy of daylight: a review, Lighting Research & Technology 17(4):162-182"
+      year: 1985
+      doi_or_url: "https://doi.org/10.1177/14771535850170040401"
+    quantitative_basis: "Overcast global horizontal 5-20 klux vs clear ~100 klux at the same elevation."
+
+  - id: ATM-007
+    layer: L1
+    severity: warning
+    title: Dense fog with full daytime sun illuminance
+    scope: scenario
+    when: "env.fog.present and env.fog.visual_range_m < 200 and env.sun.elevation_rad > 0.1745"
+    assert: "env.sun.illuminance_lux <= 50000"
+    message: >
+      Dense fog (visualRange = {env.fog.visual_range_m} m) with sun illuminance
+      = {env.sun.illuminance_lux} lux: a fog layer of that density extinguishes
+      the direct beam (no shadows) and reduces global illuminance.
+    units: { env.fog.visual_range_m: "m", env.sun.illuminance_lux: "lux" }
+    citation:
+      source: "Middleton, W.E.K., Vision Through the Atmosphere, Univ. of Toronto Press (1952); Gultepe, I. et al., Fog research: a review, Pure and Applied Geophysics 164:1121-1159"
+      year: 2007
+      doi_or_url: "https://doi.org/10.1007/s00024-007-0211-x"
+    quantitative_basis: "Vis 200 m => sigma ~15 km^-1; ~100 m fog depth gives direct-beam optical depth ~1.5."

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="clear dry noon, all attributes consistent" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="road.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="ego_model" vehicleCategory="car" mass="1600">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/>
+        </BoundingBox>
+        <Performance maxSpeed="62" maxAcceleration="5" maxDeceleration="9"/>
+      </Vehicle>
+    </ScenarioObject>
+    <ScenarioObject name="ped">
+      <Pedestrian name="ped_model" model="human" pedestrianCategory="pedestrian">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="0.5" width="0.6" height="1.8"/>
+        </BoundingBox>
+      </Pedestrian>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      <GlobalAction>
+      <EnvironmentAction>
+        <Environment name="Env">
+        <TimeOfDay animation="false" dateTime="2026-06-21T12:00:00"/>
+        <Weather fractionalCloudCover="oneOktas" temperature="295.15" atmosphericPressure="101300">
+          <Sun azimuth="3.14" elevation="1.05" illuminance="95000"/>
+          <Precipitation precipitationType="dry" precipitationIntensity="0"/>
+        </Weather>
+        <RoadCondition frictionScaleFactor="1.0" wetness="dry"/>
+        </Environment>
+      </EnvironmentAction>
+      </GlobalAction>
+      <Private entityRef="ego">
+        <PrivateAction><SpeedAction><SpeedActionDynamics dynamicsShape="linear" value="1" dynamicsDimension="time"/><SpeedActionTarget><AbsoluteTargetSpeed value="25"/></SpeedActionTarget></SpeedAction></PrivateAction>
+      </Private>
+      <Private entityRef="ped">
+        <PrivateAction><SpeedAction><SpeedActionDynamics dynamicsShape="linear" value="1" dynamicsDimension="time"/><SpeedActionTarget><AbsoluteTargetSpeed value="1.4"/></SpeedActionTarget></SpeedAction></PrivateAction>
+      </Private>
+      </Actions>
+    </Init>
+    <Story name="story">
+      <Act name="act">
+      <ManeuverGroup maximumExecutionCount="1" name="mg">
+        <Actors selectTriggeringEntities="false"><EntityRef entityRef="ego"/></Actors>
+        <Maneuver name="m">
+            <Event name="ev" priority="overwrite"><Action name="a"><PrivateAction><SpeedAction><SpeedActionDynamics dynamicsShape="linear" value="1" dynamicsDimension="time"/><SpeedActionTarget><AbsoluteTargetSpeed value="30"/></SpeedActionTarget></SpeedAction></PrivateAction></Action></Event>
+        </Maneuver>
+      </ManeuverGroup>
+      </Act>
+    </Story>
+  </Storyboard>
+</OpenSCENARIO>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="physcheck fixture" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="road.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="ego_model" vehicleCategory="car">
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      <GlobalAction>
+      <EnvironmentAction>
+        <Environment name="Env">
+        <Weather>
+        </Weather>
+        <RoadCondition frictionScaleFactor="0.9" wetness="lowFlooded"/>
+        </Environment>
+      </EnvironmentAction>
+      </GlobalAction>
+      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>

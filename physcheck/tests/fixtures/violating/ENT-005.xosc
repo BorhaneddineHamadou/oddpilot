@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="physcheck fixture" author="physcheck"/>
+  <RoadNetwork><LogicFile filepath="road.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="bus1">
+      <Vehicle name="bus1_model" vehicleCategory="bus">
+        <BoundingBox>
+          <Center x="0" y="0" z="0"/>
+          <Dimensions length="16" width="2.5" height="3.2"/>
+        </BoundingBox>
+      </Vehicle>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+      </Actions>
+    </Init>
+  </Storyboard>
+</OpenSCENARIO>

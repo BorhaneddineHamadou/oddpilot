@@ -1,0 +1,162 @@
+# Solar geometry & illumination rules (layer L1; location-dependent checks are
+# L2 roadmap — see docs/catalog_report.md §Solar for the full derivation and the
+# latitude-conditional rules awaiting OpenDRIVE geoReference support).
+pack: solar
+version: "0.1.0"
+description: >
+  Consistency of declared sun azimuth/elevation/illuminance with physics and
+  with the declared time of day. OSC 1.x TimeOfDay timezone semantics are
+  underspecified (docs/decisions.md D5): time-based checks assume local time
+  and are warnings.
+rules:
+  - id: SOL-001
+    layer: L1
+    severity: error
+    title: Sun elevation outside physical altitude range
+    scope: scenario
+    when: "exists('env.sun.elevation_rad')"
+    assert: "-1.5708 <= env.sun.elevation_rad <= 1.5708"
+    message: >
+      Sun elevation = {env.sun.elevation_rad} rad: altitude angles are bounded
+      by nadir (-pi/2) and zenith (+pi/2). (The OSC schema permits [-pi, pi],
+      looser than physics; a value beyond pi/2 often means degrees were written
+      into the radian field.)
+    units: { env.sun.elevation_rad: "rad" }
+    citation:
+      source: "Meeus, J., Astronomical Algorithms, 2nd ed., Willmann-Bell, Ch. 13 (altitude defined on [-90, +90] deg); ASAM OpenSCENARIO 1.0 Model Documentation, class Sun"
+      year: 1998
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html"
+    quantitative_basis: "Definitional bound on altitude angles."
+
+  - id: SOL-002
+    layer: L1
+    severity: error
+    title: Sun azimuth outside [0, 2*pi)
+    scope: scenario
+    when: "exists('env.sun.azimuth_rad')"
+    assert: "0 <= env.sun.azimuth_rad < 6.2832"
+    message: >
+      Sun azimuth = {env.sun.azimuth_rad} rad: outside [0, 2*pi). A value much
+      greater than 6.28 strongly suggests degrees were written into the radian
+      field.
+    units: { env.sun.azimuth_rad: "rad" }
+    citation:
+      source: "ASAM OpenSCENARIO 1.0 Model Documentation, class Sun (azimuth range [0..2PI]; 0=north, PI/2=east, PI=south)"
+      year: 2020
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html"
+    quantitative_basis: "Normative schema range; full-circle bearing."
+
+  - id: SOL-003
+    layer: L1
+    severity: error
+    title: Sun illuminance above the luminous solar constant
+    scope: scenario
+    when: "exists('env.sun.illuminance_lux')"
+    assert: "0 <= env.sun.illuminance_lux <= 133800"
+    message: >
+      Sun illuminance = {env.sun.illuminance_lux} lux exceeds the
+      extraterrestrial luminous solar constant (133.8 klux) — impossible at
+      ground level under any atmosphere.
+    units: { env.sun.illuminance_lux: "lux" }
+    citation:
+      source: "Darula, S., Kittler, R., Gueymard, C.A., Reference luminous solar constant and solar luminance for illuminance calculations, Solar Energy 79(5):559-565"
+      year: 2005
+      doi_or_url: "https://doi.org/10.1016/j.solener.2005.01.004"
+    quantitative_basis: "Luminous solar constant 133.8 klux (top of atmosphere); ground direct-normal peaks ~103 klux."
+
+  - id: SOL-004
+    layer: L1
+    severity: warning
+    title: Sun illuminance above the ground-level plausibility ceiling
+    scope: scenario
+    when: "exists('env.sun.illuminance_lux')"
+    assert: "env.sun.illuminance_lux <= 120000"
+    message: >
+      Sun illuminance = {env.sun.illuminance_lux} lux: clear-sky global
+      horizontal illuminance peaks near ~120 klux at high sun; higher values
+      occur only as brief broken-cloud enhancements.
+    units: { env.sun.illuminance_lux: "lux" }
+    citation:
+      source: "IES Calculation Procedures Committee, Recommended practice for the calculation of daylight availability, Journal of the IES 13(4):381-392"
+      year: 1984
+      doi_or_url: "https://doi.org/10.1080/00994480.1984.10748791"
+    quantitative_basis: "IES clear-sky model: E_dn ~103 klux at zenith sun; global horizontal ~120 klux."
+
+  - id: SOL-005
+    layer: L1
+    severity: error
+    title: Sun below the horizon but illuminance declared high
+    scope: scenario
+    when: "env.sun.elevation_rad < -0.0145"
+    assert: "env.sun.illuminance_lux <= 100"
+    message: >
+      Sun elevation = {env.sun.elevation_rad} rad (below the refracted horizon,
+      -50') with sun illuminance = {env.sun.illuminance_lux} lux: no part of
+      the solar disc is visible, so direct-sun illuminance is zero; residual
+      twilight is diffuse sky light, not sun light.
+    units: { env.sun.elevation_rad: "rad", env.sun.illuminance_lux: "lux" }
+    citation:
+      source: "Meeus, J., Astronomical Algorithms, 2nd ed., Ch. 15 (sunrise/sunset standard altitude -50'); U.S. Naval Observatory, Rise, Set, and Twilight Definitions; Bennett, G.G., The calculation of astronomical refraction in marine navigation, Journal of Navigation 35(2):255-259 (1982)"
+      year: 1998
+      doi_or_url: "https://aa.usno.navy.mil/faq/RST_defs"
+    quantitative_basis: "-50' = 34' refraction + 16' solar semidiameter; 100 lux grace band for engines folding twilight ambient into the sun field."
+
+  - id: SOL-006
+    layer: L1
+    severity: warning
+    title: Sun illuminance far above the clear-sky envelope for its elevation
+    scope: scenario
+    when: "env.sun.elevation_rad > 0.0145 and exists('env.sun.illuminance_lux')"
+    assert: "env.sun.illuminance_lux <= 1.15 * (127500 * exp(-0.21 / sin(env.sun.elevation_rad)) + 800 + 15500 * sqrt(sin(env.sun.elevation_rad)))"
+    message: >
+      Sun illuminance = {env.sun.illuminance_lux} lux at elevation =
+      {env.sun.elevation_rad} rad: exceeds the IES clear-sky illuminance
+      envelope for that elevation by more than 15% — e.g. a 100 klux sun at 5
+      degrees elevation is physically inconsistent.
+    units: { env.sun.illuminance_lux: "lux", env.sun.elevation_rad: "rad" }
+    citation:
+      source: "IES Calculation Procedures Committee, Recommended practice for the calculation of daylight availability, Journal of the IES 13(4):381-392 (E_dn = 127.5 klx * exp(-0.21/sin h); clear-sky diffuse A=800, B=15500, C=0.5)"
+      year: 1984
+      doi_or_url: "https://doi.org/10.1080/00994480.1984.10748791"
+    quantitative_basis: "Model values: h=10deg -> E_dn ~38 klux; h=30deg -> ~84 klux; h=60deg -> ~100 klux."
+
+  - id: SOL-007
+    layer: L1
+    severity: warning
+    title: High sun in the middle of the night
+    scope: scenario
+    when: "exists('env.time.hour') and (env.time.hour <= 3.0 or env.time.hour >= 22.0)"
+    assert: "env.sun.elevation_rad <= 0.087"
+    message: >
+      TimeOfDay = {env.time.iso} (night hours, assuming dateTime is local
+      time) with sun elevation = {env.sun.elevation_rad} rad (>5 deg): a sun
+      above the horizon at local midnight is possible only poleward of the
+      polar circles (|lat| > 66.56 deg) — for any ordinary map location this is
+      a contradiction.
+    units: { env.sun.elevation_rad: "rad", env.time.hour: "h" }
+    citation:
+      source: "Meeus, J., Astronomical Algorithms, 2nd ed., Ch. 13 (lower-transit elevation h = phi + delta - 90 deg); U.S. Naval Observatory, Rise, Set, and Twilight Definitions (midnight sun)"
+      year: 1998
+      doi_or_url: "https://aa.usno.navy.mil/faq/RST_defs"
+    quantitative_basis: >
+      At solar midnight h = |phi| + 23.44 - 90 deg, positive only for
+      |phi| > 66.56 deg. Warning (not error) because OSC 1.x leaves the
+      dateTime timezone undefined (docs/decisions.md D5).
+
+  - id: SOL-008
+    layer: L1
+    severity: warning
+    title: Bright daytime sun declared at night hours
+    scope: scenario
+    when: "exists('env.time.hour') and (env.time.hour <= 3.0 or env.time.hour >= 22.0) and not exists('env.sun.elevation_rad')"
+    assert: "env.sun.illuminance_lux <= 1000"
+    message: >
+      TimeOfDay = {env.time.iso} (night hours, local-time assumption) with sun
+      illuminance = {env.sun.illuminance_lux} lux: full-daylight illuminance at
+      night is possible only under the polar midnight sun.
+    units: { env.sun.illuminance_lux: "lux", env.time.hour: "h" }
+    citation:
+      source: "Brown, D.R.E., Natural Illumination Charts, US Navy BuShips Report 374-1 (1952); Kyba, C.C.M., Mohar, A., Posch, T., How bright is moonlight?, Astronomy & Geophysics 58(1):1.31-1.32"
+      year: 2017
+      doi_or_url: "https://doi.org/10.1093/astrogeo/atx014"
+    quantitative_basis: "Max natural night illuminance ~0.3 lux (perigee full moon); civil-twilight end ~3.4 lux."
