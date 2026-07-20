@@ -126,3 +126,24 @@ def test_catalog_resolved_entity_gets_linted() -> None:
     result = lint_scenario(parse_file(path), rules, {"L0", "L1"})
     fired = {f.rule_id for f in result.findings}
     assert "KIN-018" in fired  # maxAcceleration=20 from the assignment override
+
+
+def test_case_variant_root_still_parses() -> None:
+    # SCTrans-style <OpenScenario> root: flagged as SCH-001 but fully parsed.
+    from physcheck.ir.osc_parser import parse_string
+
+    xml = """<?xml version="1.0"?>
+<OpenScenario>
+  <FileHeader revMajor="1" revMinor="0" date="2024-01-01T00:00:00" description="d" author="a"/>
+  <Entities>
+    <ScenarioObject name="ego"><Vehicle name="m" vehicleCategory="car">
+      <BoundingBox><Center x="0" y="0" z="0"/>
+      <Dimensions length="4.6" width="1.86" height="1.5"/></BoundingBox>
+    </Vehicle></ScenarioObject>
+  </Entities>
+  <Storyboard><Init><Actions/></Init></Storyboard>
+</OpenScenario>
+"""
+    sc = parse_string(xml)
+    assert any(i.code == "xml-error" for i in sc.parse_issues)
+    assert len(sc.entities) == 1  # parsing continued past the bad root

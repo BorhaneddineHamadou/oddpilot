@@ -181,8 +181,17 @@ def parse_string(text: str, source_path: str = "<string>") -> Scenario:
         ctx.issue("xml-error", f"not well-formed XML: {exc}")
         return sc
     if root.tag != "OpenSCENARIO":
-        ctx.issue("xml-error", f"root element is <{root.tag}>, expected <OpenSCENARIO>")
-        return sc
+        if root.tag.lower() == "openscenario":
+            # Wrong case (e.g. SCTrans emits <OpenScenario>): flag it, but keep
+            # parsing — tools like scenario_runner accept these files, so the
+            # physics layers must still see them.
+            ctx.issue(
+                "xml-error",
+                f"root element is <{root.tag}>, expected <OpenSCENARIO> (case-sensitive)",
+            )
+        else:
+            ctx.issue("xml-error", f"root element is <{root.tag}>, expected <OpenSCENARIO>")
+            return sc
 
     header = root.find("FileHeader")
     if header is None:
