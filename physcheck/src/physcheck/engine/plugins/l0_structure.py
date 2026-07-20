@@ -19,44 +19,52 @@ if TYPE_CHECKING:  # imported late at runtime to avoid a cycle with engine.py
 
 __all__ = ["PLUGIN_RULES", "structural_findings"]
 
-#: id -> (severity, title, citation)
-PLUGIN_RULES: dict[str, tuple[str, str, str]] = {
+#: id -> (layer, severity, title, citation)
+PLUGIN_RULES: dict[str, tuple[str, str, str, str]] = {
     "SCH-001": (
+        "L0",
         "error",
         "File is not a well-formed OpenSCENARIO document",
         "ASAM OpenSCENARIO 1.x specification (XML schema)",
     ),
     "SCH-002": (
+        "L0",
         "error",
         "FileHeader missing or incomplete",
         "ASAM OpenSCENARIO 1.x Model Documentation, class FileHeader",
     ),
     "SCH-003": (
+        "L0",
         "error",
         "Unsupported OpenSCENARIO major revision",
         "ASAM OpenSCENARIO 1.x Model Documentation, class FileHeader (revMajor)",
     ),
     "SCH-004": (
+        "L0",
         "error",
         "Dangling entityRef",
         "ASAM OpenSCENARIO 1.x Model Documentation, EntityRef semantics",
     ),
     "SCH-005": (
+        "L0",
         "error",
         "Unresolved parameter or expression",
         "ASAM OpenSCENARIO 1.x Model Documentation, ParameterDeclarations",
     ),
     "SCH-006": (
+        "L0",
         "error",
         "Value not parseable as its declared type",
         "ASAM OpenSCENARIO 1.x specification (XML schema types)",
     ),
     "SCH-007": (
+        "L0",
         "info",
-        "CatalogReference not resolved (v0.1 limitation)",
+        "CatalogReference could not be resolved",
         "ASAM OpenSCENARIO 1.x Model Documentation, Catalogs",
     ),
     "SCH-008": (
+        "L0",
         "error",
         "TimeOfDay dateTime not ISO 8601",
         "ASAM OpenSCENARIO 1.x Model Documentation, class TimeOfDay (xsd:dateTime)",
@@ -83,7 +91,7 @@ def structural_findings(scenario: Scenario) -> list[Finding]:
     findings: list[Finding] = []
 
     def add(rule_id: str, message: str, context: str = "") -> None:
-        severity, title, citation = PLUGIN_RULES[rule_id]
+        _layer, severity, title, citation = PLUGIN_RULES[rule_id]
         findings.append(
             Finding(
                 rule_id=rule_id,

@@ -100,3 +100,37 @@ physcheck lint esmini/resources/xosc --severity info --fail-on never --format js
 physcheck lint OSC-ALKS-scenarios     --severity info --fail-on never --format json -o alks.json
 physcheck lint scenario_runner/srunner/examples --severity info --fail-on never --format json -o srunner.json
 ```
+
+---
+
+## Update: rescan with catalog resolution + version gating (same day)
+
+After implementing catalog resolution (decisions D18), version gating (D19) and the
+cross-environment monotonicity rule (D20), the same corpora were rescanned:
+
+| Corpus | Scenarios with ≥1 error (before → after) |
+|---|---|
+| CARLA ScenarioRunner | 8/9 → **9/9** |
+| esmini | 3/68 → 5/68 |
+| ASAM ALKS | 0/15 → 0/15 (still no errors; now with real warnings) |
+
+What resolving catalogs revealed — all previously invisible:
+
+- **ScenarioRunner's `CatalogExample.xosc`** resolves to catalog vehicles with
+  **zero-dimension bounding boxes** (SCH-112) and **mass = 0** (SCH-114) — now every
+  example scenario has at least one error.
+- **esmini's shipped `VehicleCatalog.xosc`** gives its *bus* a car-sized bounding box
+  (4.5 × 1.8 × 1.5 m, a copy-paste default) with maxSpeed 70 m/s (252 km/h) — KIN-013
+  ×14, KIN-015 ×14, KIN-020 ×14 across every scenario using catalog trucks/buses; its
+  SUMO template vehicle is a 6.04 × 2.5 m "car" (ENT-002/003); and its *environment
+  catalog* "winter" entry declares atmosphericPressure = 10 000 Pa, below the OSC
+  schema range [80 000..120 000] (SCH-109 — a new **error** in the showcase
+  environment file). Ego vehicles in `straight_500m*.xosc` declare maxDeceleration =
+  30 m/s² (KIN-014 errors), and `routing-test.xosc` commands a 15 m/s² speed change
+  (KIN-024).
+- **ALKS** finally gets its entities judged: 22 KIN-019 warnings (catalog cars declare
+  maxAcceleration = 10 m/s², ~1 g) and one 15.5 m bus (ENT-005) — still zero errors,
+  preserving its role as the false-positive check.
+
+The v0.1 blind spot quantified above is closed: catalog-defined entities no longer
+escape the envelope rules.

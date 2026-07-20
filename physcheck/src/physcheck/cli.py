@@ -23,7 +23,7 @@ from typing import NoReturn
 from physcheck import __version__
 from physcheck.engine.catalog import RuleSpec, load_default_packs, load_pack
 from physcheck.engine.engine import SEVERITY_ORDER, Finding, LintResult, lint_scenario
-from physcheck.engine.plugins.l0_structure import PLUGIN_RULES
+from physcheck.engine.plugins import PLUGIN_RULES
 from physcheck.ir.osc_parser import parse_file
 from physcheck.report.formats import render_report
 
@@ -190,8 +190,8 @@ def _explain(rule_id: str, findings: list[Finding], rules: list[RuleSpec]) -> No
             print(f"  basis:  {spec.quantitative_basis}")
         print(f"  cite:   {spec.citation_str}")
     elif rule_id in PLUGIN_RULES:
-        severity, title, citation = PLUGIN_RULES[rule_id]
-        print(f"{rule_id} [L0/{severity}] {title} (builtin plugin rule)")
+        p_layer, severity, title, citation = PLUGIN_RULES[rule_id]
+        print(f"{rule_id} [{p_layer}/{severity}] {title} (builtin plugin rule)")
         print(f"  cite:   {citation}")
     else:
         print(f"  unknown rule id {rule_id!r}")
@@ -223,16 +223,19 @@ def _cmd_rules(args: argparse.Namespace) -> int:
 
     if args.rules_command == "list":
         specs = [r for r in rules if args.layer is None or r.layer == args.layer]
-        include_plugins = args.layer in (None, "L0")
+        plugin_rules = {
+            rid: meta
+            for rid, meta in PLUGIN_RULES.items()
+            if args.layer is None or meta[0] == args.layer
+        }
         print(f"{'ID':10s} {'LAYER':5s} {'SEVERITY':8s} {'PACK':14s} TITLE / SOURCE")
-        if include_plugins:
-            for rule_id, (severity, title, citation) in sorted(PLUGIN_RULES.items()):
-                print(f"{rule_id:10s} {'L0':5s} {severity:8s} {'builtin':14s} {title} — {citation}")
+        for rule_id, (p_layer, severity, title, citation) in sorted(plugin_rules.items()):
+            print(f"{rule_id:10s} {p_layer:5s} {severity:8s} {'builtin':14s} {title} — {citation}")
         for spec in sorted(specs, key=lambda r: r.id):
             source = str(spec.citation.get("source", ""))[:70]
             print(f"{spec.id:10s} {spec.layer:5s} {spec.severity:8s} {spec.pack:14s} "
                   f"{spec.title} — {source}")
-        total = len(specs) + (len(PLUGIN_RULES) if include_plugins else 0)
+        total = len(specs) + len(plugin_rules)
         print(f"\n{total} rule(s)")
         return 0
 
@@ -240,9 +243,9 @@ def _cmd_rules(args: argparse.Namespace) -> int:
         shown = next((r for r in rules if r.id == args.rule_id), None)
         if shown is None:
             if args.rule_id in PLUGIN_RULES:
-                severity, title, citation = PLUGIN_RULES[args.rule_id]
-                print(f"{args.rule_id} [L0/{severity}] {title}")
-                print("  builtin structural plugin rule (physcheck.engine.plugins.l0_structure)")
+                p_layer, severity, title, citation = PLUGIN_RULES[args.rule_id]
+                print(f"{args.rule_id} [{p_layer}/{severity}] {title}")
+                print("  builtin plugin rule (physcheck.engine.plugins)")
                 print(f"  citation: {citation}")
                 return 0
             print(f"physcheck: unknown rule id {args.rule_id!r}", file=sys.stderr)

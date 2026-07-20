@@ -37,8 +37,10 @@ class FileHeader:
 class Sun:
     azimuth_rad: float | None = None
     elevation_rad: float | None = None
-    #: ``intensity`` (unit unspecified) in OSC 1.0/1.1; ``illuminance`` (lux) since 1.2.
+    #: ``intensity`` (lux) in OSC 1.0/1.1; renamed ``illuminance`` (lux) in 1.2.
     illuminance_lux: float | None = None
+    #: Which XML attribute carried the value: "illuminance" | "intensity" | None.
+    illuminance_attr: str | None = None
 
 
 @dataclass

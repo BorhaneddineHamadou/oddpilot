@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-20T12:00:00"
+              description="test vehicle catalog" author="physcheck"/>
+  <Catalog name="VehicleCatalog">
+    <Vehicle name="fast_car" vehicleCategory="car" mass="$Mass">
+      <ParameterDeclarations>
+        <ParameterDeclaration name="Mass" parameterType="double" value="1600"/>
+        <ParameterDeclaration name="MaxAccel" parameterType="double" value="5"/>
+      </ParameterDeclarations>
+      <BoundingBox>
+        <Center x="1.4" y="0" z="0.75"/>
+        <Dimensions length="4.6" width="1.86" height="1.5"/>
+      </BoundingBox>
+      <Performance maxSpeed="62" maxAcceleration="$MaxAccel" maxDeceleration="9"/>
+    </Vehicle>
+  </Catalog>
+</OpenSCENARIO>

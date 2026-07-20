@@ -42,13 +42,60 @@ _OKTAS = {f"{name}Oktas": i for i, name in enumerate(
 _VEHICLE_LIKE = {"Vehicle": "vehicle", "Pedestrian": "pedestrian", "MiscObject": "misc_object"}
 
 
-class _Ctx:
-    """Mutable parse context: parameters and the issue sink."""
+#: (catalog_name_or_file_stem, entry_name) -> (entry element, entry default params)
+_CatalogIndex = dict[tuple[str, str], ET.Element]
 
-    def __init__(self, scenario: Scenario) -> None:
+
+class _Ctx:
+    """Mutable parse context: parameters, catalog index and the issue sink."""
+
+    def __init__(self, scenario: Scenario, params: dict[str, str] | None = None) -> None:
         self.scenario = scenario
-        self.params: dict[str, str] = scenario.parameters
+        self.params: dict[str, str] = scenario.parameters if params is None else params
         self._depth = 0
+        self.catalog_dirs: list[Path] = []
+        self._catalog_index: _CatalogIndex | None = None
+
+    def with_params(self, params: dict[str, str]) -> _Ctx:
+        """Sub-context for a catalog entry: own parameter namespace, shared issues."""
+        sub = _Ctx(self.scenario, params=params)
+        sub.catalog_dirs = self.catalog_dirs
+        sub._catalog_index = self._catalog_index
+        return sub
+
+    def catalog_entry(self, catalog_name: str | None, entry_name: str | None) -> ET.Element | None:
+        """Look up a catalog entry by (Catalog@name | file stem, entry name)."""
+        if not catalog_name or not entry_name:
+            return None
+        if self._catalog_index is None:
+            self._catalog_index = self._build_catalog_index()
+        index = self._catalog_index
+        return index.get((catalog_name, entry_name))
+
+    def _build_catalog_index(self) -> _CatalogIndex:
+        index: _CatalogIndex = {}
+        for directory in self.catalog_dirs:
+            if not directory.is_dir():
+                self.issue(
+                    "unresolved-catalog",
+                    f"catalog directory '{directory}' does not exist",
+                    "CatalogLocations",
+                )
+                continue
+            for path in sorted(directory.glob("*.xosc")):
+                try:
+                    root = ET.fromstring(path.read_text(encoding="utf-8", errors="replace"))
+                except (OSError, ET.ParseError) as exc:
+                    self.issue("unresolved-catalog", f"cannot parse catalog {path.name}: {exc}")
+                    continue
+                for catalog in root.findall("Catalog"):
+                    names = {catalog.get("name") or path.stem, path.stem}
+                    for entry in catalog:
+                        entry_name = entry.get("name")
+                        if entry_name:
+                            for name in names:
+                                index.setdefault((name, entry_name), entry)
+        return index
 
     def issue(self, code: str, message: str, context: str = "") -> None:
         self.scenario.parse_issues.append(ParseIssue(code, message, context))
@@ -160,6 +207,15 @@ def parse_string(text: str, source_path: str = "<string>") -> Scenario:
     if logic is not None:
         sc.road_network_logic_file = logic.get("filepath")
 
+    base_dir = Path(source_path).parent if source_path != "<string>" else None
+    if base_dir is not None:
+        locations = root.find("CatalogLocations")
+        if locations is not None:
+            for location in locations:
+                directory = location.find("Directory")
+                if directory is not None and directory.get("path"):
+                    ctx.catalog_dirs.append((base_dir / directory.get("path", "")).resolve())
+
     for obj in root.findall("Entities/ScenarioObject"):
         entity = _parse_scenario_object(obj, ctx)
         if entity is not None:
@@ -206,18 +262,55 @@ def _parse_scenario_object(obj: ET.Element, ctx: _Ctx) -> Entity | None:
         found = obj.find(tag)
         if found is not None:
             return _parse_entity_body(found, name, kind, ctx)
-    if obj.find("CatalogReference") is not None:
-        catref = obj.find("CatalogReference")
-        assert catref is not None
-        ctx.issue(
-            "unresolved-catalog",
-            f"entity '{name}' comes from catalog "
-            f"'{catref.get('catalogName')}/{catref.get('entryName')}' (not resolved in v0.1)",
-            f"ScenarioObject[{name}]",
-        )
+    catref = obj.find("CatalogReference")
+    if catref is not None:
+        entry, sub_ctx = _resolve_catalog_reference(catref, ctx, f"ScenarioObject[{name}]")
+        if entry is not None and entry.tag in _VEHICLE_LIKE:
+            entity = _parse_entity_body(entry, name, _VEHICLE_LIKE[entry.tag], sub_ctx)
+            entity.from_catalog = True
+            return entity
+        if entry is not None:
+            ctx.issue(
+                "unresolved-catalog",
+                f"catalog entry for entity '{name}' is a <{entry.tag}>, not an entity",
+                f"ScenarioObject[{name}]",
+            )
         return Entity(name=name, kind="external", from_catalog=True)
     ctx.issue("unknown-entity", f"entity '{name}' has an unrecognized object type")
     return Entity(name=name, kind="external")
+
+
+def _resolve_catalog_reference(
+    catref: ET.Element, ctx: _Ctx, where: str
+) -> tuple[ET.Element | None, _Ctx]:
+    """Resolve a CatalogReference to its entry element + entry-scoped context.
+
+    Entry parameters are the entry's own ParameterDeclarations defaults,
+    overridden by the reference's ParameterAssignments (resolved in the
+    scenario's parameter scope).
+    """
+    catalog_name = ctx.resolve(catref.get("catalogName"), f"{where}@catalogName")
+    entry_name = ctx.resolve(catref.get("entryName"), f"{where}@entryName")
+    entry = ctx.catalog_entry(catalog_name, entry_name)
+    if entry is None:
+        ctx.issue(
+            "unresolved-catalog",
+            f"catalog entry '{catalog_name}/{entry_name}' not found "
+            "(missing CatalogLocations directory or entry)",
+            where,
+        )
+        return None, ctx
+    params: dict[str, str] = {}
+    for decl in entry.findall("ParameterDeclarations/ParameterDeclaration"):
+        decl_name = decl.get("name")
+        if decl_name:
+            params[decl_name.lstrip("$")] = decl.get("value", "")
+    for assignment in catref.findall("ParameterAssignments/ParameterAssignment"):
+        ref = assignment.get("parameterRef")
+        value = ctx.resolve(assignment.get("value"), f"{where}/ParameterAssignment")
+        if ref and value is not None:
+            params[ref.lstrip("$")] = value
+    return entry, ctx.with_params(params)
 
 
 def _parse_entity_body(elem: ET.Element, name: str, kind: str, ctx: _Ctx) -> Entity:
@@ -343,12 +436,11 @@ def _parse_lane_change(
 def _parse_environment_action(action: ET.Element, ctx: _Ctx, label: str) -> Environment | None:
     env_elem = action.find("Environment")
     if env_elem is None:
-        if action.find("CatalogReference") is not None:
-            ctx.issue(
-                "unresolved-catalog",
-                "EnvironmentAction uses a CatalogReference (not resolved in v0.1)",
-                label,
-            )
+        catref = action.find("CatalogReference")
+        if catref is not None:
+            entry, sub_ctx = _resolve_catalog_reference(catref, ctx, f"{label}/EnvironmentAction")
+            if entry is not None and entry.tag == "Environment":
+                return _parse_environment(entry, sub_ctx, label)
         return None
     return _parse_environment(env_elem, ctx, label)
 
@@ -391,12 +483,16 @@ def _parse_environment(env_elem: ET.Element, ctx: _Ctx, label: str) -> Environme
         sun = weather_elem.find("Sun")
         if sun is not None:
             illuminance = ctx.get_float(sun, "illuminance", where)
+            illuminance_attr: str | None = "illuminance" if illuminance is not None else None
             if illuminance is None:
                 illuminance = ctx.get_float(sun, "intensity", where)
+                if illuminance is not None:
+                    illuminance_attr = "intensity"
             weather.sun = Sun(
                 azimuth_rad=ctx.get_float(sun, "azimuth", where),
                 elevation_rad=ctx.get_float(sun, "elevation", where),
                 illuminance_lux=illuminance,
+                illuminance_attr=illuminance_attr,
             )
         fog = weather_elem.find("Fog")
         if fog is not None:

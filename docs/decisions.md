@@ -101,3 +101,27 @@ mypy 1.11.2, ruff 0.15.22, pytest 9.1.1, hypothesis 6.157.0.
 **D17 — Message templating.** `{dotted.attr}` placeholders are substituted from the
 attribute view (unknown names left verbatim); templates in YAML are whitespace-folded.
 Findings carry the raw offending values separately (`values`), which `--explain` prints.
+
+**D18 — Catalog resolution (supersedes the D12 limitation).** `CatalogLocations`
+directories are scanned for `*.xosc` catalog files; entries are indexed by
+(`Catalog@name` *or* file stem, entry name) — the fallback covers corpora whose
+catalogName refers to the file rather than the Catalog element. Entry
+`ParameterDeclarations` provide defaults, overridden by the reference's
+`ParameterAssignments` (resolved in scenario scope); the entry is parsed in its own
+parameter namespace (shared issue sink). Vehicle/Pedestrian/MiscObject and Environment
+references resolve; unresolvable references keep the SCH-007 info finding and stay
+excluded from entity rules. OSC's catalog-name uniqueness subtleties (two files with the
+same Catalog@name) resolve first-match in sorted filename order.
+
+**D19 — Version gating (`version_gating.yaml`, VER-001…010).** FileHeader
+revMajor/revMinor gate the vocabulary: attributes used before their introduction
+(precipitationIntensity/Wind/temperature/pressure < 1.1; fractionalCloudCover/wetness/
+Sun@illuminance < 1.2; Vehicle@mass < 1.1) are errors; deprecated attributes used in
+newer revisions (intensity01 ≥ 1.1, cloudState ≥ 1.2, Sun@intensity ≥ 1.2) are info.
+Which Sun spelling was used is tracked as `env.sun.illuminance_attr`.
+
+**D20 — Cross-environment checks are plugin rules.** FRI-024 (friction scale must be
+non-increasing in wetness severity across a scenario's environment states) needs all
+environment states at once, which the per-context YAML engine cannot express; it ships
+as the first L1 plugin rule (`physcheck.engine.plugins.l1_cross`), with plugin metadata
+unified across layers so `rules list/show` covers it.

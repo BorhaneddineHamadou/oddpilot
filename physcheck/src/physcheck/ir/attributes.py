@@ -39,6 +39,7 @@ def _environment_attrs(env: Environment) -> Attrs:
             _put(attrs, "env.sun.azimuth_rad", weather.sun.azimuth_rad)
             _put(attrs, "env.sun.elevation_rad", weather.sun.elevation_rad)
             _put(attrs, "env.sun.illuminance_lux", weather.sun.illuminance_lux)
+            _put(attrs, "env.sun.illuminance_attr", weather.sun.illuminance_attr)
         if weather.fog is not None:
             attrs["env.fog.present"] = True
             _put(attrs, "env.fog.visual_range_m", weather.fog.visual_range_m)
@@ -60,6 +61,8 @@ def _environment_attrs(env: Environment) -> Attrs:
 def _scenario_wide_attrs(scenario: Scenario) -> Attrs:
     attrs: Attrs = {"file.name": scenario.source_path}
     _put(attrs, "osc.version", scenario.osc_version)
+    _put(attrs, "osc.rev_major", scenario.header.rev_major)
+    _put(attrs, "osc.rev_minor", scenario.header.rev_minor)
     speeds = [s for s in (_max_target_speed(scenario, e) for e in scenario.entities)
               if s is not None]
     if speeds:
@@ -108,8 +111,8 @@ def entity_contexts(scenario: Scenario) -> list[tuple[str, Attrs]]:
         base.update(_environment_attrs(scenario.environments[0]))
     contexts: list[tuple[str, Attrs]] = []
     for entity in scenario.entities:
-        if entity.from_catalog:
-            continue  # nothing checkable without resolving the catalog
+        if entity.kind == "external":
+            continue  # unresolved catalog reference: nothing checkable
         attrs = dict(base)
         attrs["entity.name"] = entity.name
         attrs["entity.kind"] = entity.kind

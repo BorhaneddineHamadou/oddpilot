@@ -1,0 +1,169 @@
+# L0 version-gating rules: an attribute used before the OpenSCENARIO revision
+# that introduced it makes the document schema-invalid for its declared
+# revMajor/revMinor; use of deprecated attributes in newer revisions is info.
+# Version attributions verified against the ASAM model documentation 1.0.0-1.3.0
+# (see docs/attribute_space.md §1).
+pack: version_gating
+version: "0.1.0"
+description: >
+  FileHeader revMajor/revMinor gate the vocabulary: newer-than-declared
+  attributes are errors, deprecated-in-declared-version attributes are info.
+rules:
+  - id: VER-001
+    layer: L0
+    severity: error
+    title: precipitationIntensity used in an OSC 1.0 document
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor == 0"
+    assert: "not exists('env.precip.intensity_mmh')"
+    message: >
+      Precipitation@precipitationIntensity requires OSC >= 1.1 but the
+      FileHeader declares 1.0 (which has only the unitless intensity [0..1]).
+    citation:
+      source: "ASAM OpenSCENARIO Model Documentation, class Precipitation (precipitationIntensity since 1.1)"
+      year: 2021
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Precipitation.html"
+    quantitative_basis: "Attribute introduced in 1.1."
+
+  - id: VER-002
+    layer: L0
+    severity: error
+    title: Wind element used in an OSC 1.0 document
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor == 0"
+    assert: "not exists('env.wind.speed_mps') and not exists('env.wind.direction_rad')"
+    message: "Weather/Wind requires OSC >= 1.1 but the FileHeader declares 1.0."
+    citation:
+      source: "ASAM OpenSCENARIO Model Documentation, class Weather (Wind element since 1.1)"
+      year: 2021
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Weather.html"
+    quantitative_basis: "Element introduced in 1.1."
+
+  - id: VER-003
+    layer: L0
+    severity: error
+    title: Weather temperature/pressure used in an OSC 1.0 document
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor == 0"
+    assert: "not exists('env.temperature_k') and not exists('env.pressure_pa')"
+    message: >
+      Weather@temperature and @atmosphericPressure require OSC >= 1.1 but the
+      FileHeader declares 1.0.
+    citation:
+      source: "ASAM OpenSCENARIO Model Documentation, class Weather (temperature/atmosphericPressure since 1.1)"
+      year: 2021
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Weather.html"
+    quantitative_basis: "Attributes introduced in 1.1."
+
+  - id: VER-004
+    layer: L0
+    severity: error
+    title: fractionalCloudCover used before OSC 1.2
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor < 2"
+    assert: "not exists('env.cloud.oktas')"
+    message: >
+      Weather@fractionalCloudCover requires OSC >= 1.2 but the FileHeader
+      declares 1.{osc.rev_minor} (use cloudState instead).
+    citation:
+      source: "ASAM OpenSCENARIO 1.2.0 Model Documentation, enumeration FractionalCloudCover (since 1.2)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Enum introduced in 1.2, replacing cloudState."
+
+  - id: VER-005
+    layer: L0
+    severity: error
+    title: RoadCondition wetness used before OSC 1.2
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor < 2"
+    assert: "not exists('env.road.wetness')"
+    message: >
+      RoadCondition@wetness requires OSC >= 1.2 but the FileHeader declares
+      1.{osc.rev_minor}.
+    citation:
+      source: "ASAM OpenSCENARIO 1.2.0 Model Documentation, enumeration Wetness (since 1.2)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Enum introduced in 1.2."
+
+  - id: VER-006
+    layer: L0
+    severity: error
+    title: Sun illuminance used before OSC 1.2
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor < 2 and exists('env.sun.illuminance_attr')"
+    assert: "env.sun.illuminance_attr != 'illuminance'"
+    message: >
+      Sun@illuminance requires OSC >= 1.2 but the FileHeader declares
+      1.{osc.rev_minor} (use the deprecated-in-1.2 @intensity, same lux
+      semantics).
+    citation:
+      source: "ASAM OpenSCENARIO 1.2.0 Model Documentation, class Sun (intensity renamed illuminance in 1.2)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Attribute renamed in 1.2, semantics unchanged."
+
+  - id: VER-007
+    layer: L0
+    severity: info
+    title: Deprecated unitless precipitation intensity in OSC >= 1.1
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor >= 1"
+    assert: "not exists('env.precip.intensity01')"
+    message: >
+      Precipitation@intensity ([0..1], unitless) is deprecated since OSC 1.1;
+      this 1.{osc.rev_minor} document should use precipitationIntensity (mm/h).
+    citation:
+      source: "ASAM OpenSCENARIO Model Documentation, class Precipitation (intensity deprecated since 1.1)"
+      year: 2021
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Precipitation.html"
+    quantitative_basis: "Deprecated in 1.1."
+
+  - id: VER-008
+    layer: L0
+    severity: info
+    title: Deprecated cloudState in OSC >= 1.2
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor >= 2"
+    assert: "not exists('env.cloud.state')"
+    message: >
+      Weather@cloudState is deprecated since OSC 1.2; this 1.{osc.rev_minor}
+      document should use fractionalCloudCover (oktas).
+    citation:
+      source: "ASAM OpenSCENARIO 1.2.0 Model Documentation, enumeration CloudState (deprecated 1.2)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Deprecated in 1.2."
+
+  - id: VER-009
+    layer: L0
+    severity: info
+    title: Deprecated Sun intensity in OSC >= 1.2
+    scope: scenario
+    when: "osc.rev_major == 1 and osc.rev_minor >= 2 and exists('env.sun.illuminance_attr')"
+    assert: "env.sun.illuminance_attr != 'intensity'"
+    message: >
+      Sun@intensity is deprecated since OSC 1.2; this 1.{osc.rev_minor}
+      document should use @illuminance (same lux semantics).
+    citation:
+      source: "ASAM OpenSCENARIO 1.2.0 Model Documentation, class Sun (intensity deprecated 1.2)"
+      year: 2022
+      doi_or_url: "https://www.asam.net/standards/detail/openscenario-xml/"
+    quantitative_basis: "Deprecated in 1.2."
+
+  - id: VER-010
+    layer: L0
+    severity: error
+    title: Vehicle mass used in an OSC 1.0 document
+    scope: entity
+    when: "osc.rev_major == 1 and osc.rev_minor == 0 and entity.kind == 'vehicle'"
+    assert: "not exists('entity.mass_kg')"
+    message: >
+      Vehicle@mass requires OSC >= 1.1 but the FileHeader declares 1.0 (the
+      1.0 Vehicle has only name and vehicleCategory attributes).
+    citation:
+      source: "ASAM OpenSCENARIO Model Documentation, class Vehicle (mass since 1.1; verified absent in 1.0.0)"
+      year: 2021
+      doi_or_url: "https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Vehicle.html"
+    quantitative_basis: "Attribute introduced in 1.1."

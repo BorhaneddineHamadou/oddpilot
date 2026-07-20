@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from physcheck.engine.catalog import RuleSpec
 from physcheck.engine.plugins.l0_structure import structural_findings
+from physcheck.engine.plugins.l1_cross import cross_findings
 from physcheck.engine.predicate import MissingAttribute, PredicateError
 from physcheck.ir.attributes import Attrs, entity_contexts, scenario_contexts
 from physcheck.ir.model import Scenario
@@ -65,6 +66,8 @@ def lint_scenario(
         result.findings.extend(structural_findings(scenario))
     if scenario.document_kind != "scenario":
         return result
+    if "L1" in layers:
+        result.findings.extend(cross_findings(scenario))
 
     active = [r for r in rules if r.layer in layers]
     contexts_by_scope = {

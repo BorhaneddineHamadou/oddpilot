@@ -263,6 +263,22 @@ VIOLATING: dict[str, str] = {
     "SCH-112": _fix(entities=[{"name": "ego", "bbox": (0, 1.8, 1.5)}]),
     "SCH-113": _fix(entities=[{"name": "ego", "perf": (-1, 5, 8)}]),
     "SCH-114": _fix(entities=[{"name": "ego", "mass": 0}]),
+    # --- version gating ---
+    "VER-001": _fix(rev=(1, 0), env=env_xml(precip={"precipitationType": "rain", "precipitationIntensity": 5})),
+    "VER-002": _fix(rev=(1, 0), env=env_xml(wind={"direction": 0, "speed": 5})),
+    "VER-003": _fix(rev=(1, 0), env=env_xml(temperature=288.15)),
+    "VER-004": _fix(rev=(1, 1), env=env_xml(oktas="twoOktas")),
+    "VER-005": _fix(rev=(1, 1), env=env_xml(wetness="dry")),
+    "VER-006": _fix(rev=(1, 1), env=env_xml(sun={"azimuth": 1.0, "elevation": 0.5, "illuminance": 5000})),
+    "VER-007": _fix(rev=(1, 2), env=env_xml(precip={"precipitationType": "rain", "intensity": 0.5})),
+    "VER-008": _fix(rev=(1, 2), env=env_xml(cloud_state="free")),
+    "VER-009": _fix(rev=(1, 2), env=env_xml(sun={"azimuth": 1.0, "elevation": 0.5, "intensity": 5000})),
+    "VER-010": _fix(rev=(1, 0), entities=[{"name": "ego", "mass": 1500}]),
+    # --- cross-environment ---
+    "FRI-024": _fix(
+        env=env_xml(wetness="dry", friction=0.8),
+        story_env=env_xml(wetness="wetWithPuddles", friction=0.85).strip(),
+    ),
     # --- atmosphere ---
     "ATM-001": _fix(env=env_xml(fog_range=5000)),
     "ATM-002": _fix(env=env_xml(fog_range=400000)),
