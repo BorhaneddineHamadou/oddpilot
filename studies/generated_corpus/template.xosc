@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Study template: every environmental / kinematic attribute a generator
+     chooses is a ParameterDeclaration slot. Instantiation only rewrites the
+     declaration values, so ALL strategies share the identical scenario
+     skeleton (CARLA Town04 road 38, one ego, one pedestrian, a lane change)
+     and differ ONLY in how parameter values are chosen. -->
+<OpenSCENARIO>
+  <FileHeader revMajor="1" revMinor="2" date="2026-07-21T12:00:00"
+              description="generated-corpus study scenario" author="odd-pilot study"/>
+  <ParameterDeclarations>
+    <ParameterDeclaration name="fog_visual_range" parameterType="double" value="10000"/>
+    <ParameterDeclaration name="precip_type" parameterType="string" value="dry"/>
+    <ParameterDeclaration name="precip_intensity" parameterType="double" value="0"/>
+    <ParameterDeclaration name="cloud_cover" parameterType="string" value="zeroOktas"/>
+    <ParameterDeclaration name="temperature" parameterType="double" value="288"/>
+    <ParameterDeclaration name="pressure" parameterType="double" value="101325"/>
+    <ParameterDeclaration name="sun_azimuth" parameterType="double" value="3.14"/>
+    <ParameterDeclaration name="sun_elevation" parameterType="double" value="0.7"/>
+    <ParameterDeclaration name="sun_illuminance" parameterType="double" value="80000"/>
+    <ParameterDeclaration name="wind_speed" parameterType="double" value="2"/>
+    <ParameterDeclaration name="wetness" parameterType="string" value="dry"/>
+    <ParameterDeclaration name="friction_scale" parameterType="double" value="1.0"/>
+    <ParameterDeclaration name="max_speed" parameterType="double" value="60"/>
+    <ParameterDeclaration name="max_accel" parameterType="double" value="5"/>
+    <ParameterDeclaration name="max_decel" parameterType="double" value="9"/>
+    <ParameterDeclaration name="mass" parameterType="double" value="1600"/>
+    <ParameterDeclaration name="target_speed" parameterType="double" value="15"/>
+    <ParameterDeclaration name="lane_change_time" parameterType="double" value="3"/>
+    <ParameterDeclaration name="ped_speed" parameterType="double" value="1.4"/>
+    <ParameterDeclaration name="spawn_s" parameterType="double" value="50"/>
+  </ParameterDeclarations>
+  <RoadNetwork><LogicFile filepath="Town04.xodr"/></RoadNetwork>
+  <Entities>
+    <ScenarioObject name="ego">
+      <Vehicle name="car" vehicleCategory="car" mass="$mass">
+        <BoundingBox><Center x="0" y="0" z="0"/>
+          <Dimensions length="4.6" width="1.86" height="1.5"/></BoundingBox>
+        <Performance maxSpeed="$max_speed" maxAcceleration="$max_accel"
+                     maxDeceleration="$max_decel"/>
+      </Vehicle>
+    </ScenarioObject>
+    <ScenarioObject name="walker">
+      <Pedestrian name="ped" pedestrianCategory="pedestrian" mass="80">
+        <BoundingBox><Center x="0" y="0" z="0"/>
+          <Dimensions length="0.5" width="0.6" height="1.8"/></BoundingBox>
+      </Pedestrian>
+    </ScenarioObject>
+  </Entities>
+  <Storyboard>
+    <Init>
+      <Actions>
+        <GlobalAction><EnvironmentAction><Environment name="env">
+          <Weather fractionalCloudCover="$cloud_cover" temperature="$temperature"
+                   atmosphericPressure="$pressure">
+            <Sun azimuth="$sun_azimuth" elevation="$sun_elevation"
+                 illuminance="$sun_illuminance"/>
+            <Fog visualRange="$fog_visual_range"/>
+            <Precipitation precipitationType="$precip_type"
+                           precipitationIntensity="$precip_intensity"/>
+            <Wind direction="0.0" speed="$wind_speed"/>
+          </Weather>
+          <RoadCondition frictionScaleFactor="$friction_scale" wetness="$wetness"/>
+        </Environment></EnvironmentAction></GlobalAction>
+        <Private entityRef="ego">
+          <PrivateAction><TeleportAction><Position>
+            <LanePosition roadId="38" laneId="-1" s="$spawn_s" offset="0"/>
+          </Position></TeleportAction></PrivateAction>
+          <PrivateAction><LongitudinalAction><SpeedAction>
+            <SpeedActionDynamics dynamicsShape="step" value="0" dynamicsDimension="time"/>
+            <SpeedActionTarget><AbsoluteTargetSpeed value="$target_speed"/></SpeedActionTarget>
+          </SpeedAction></LongitudinalAction></PrivateAction>
+        </Private>
+        <Private entityRef="walker">
+          <PrivateAction><TeleportAction><Position>
+            <WorldPosition x="-500" y="-500" h="0"/>
+          </Position></TeleportAction></PrivateAction>
+          <PrivateAction><LongitudinalAction><SpeedAction>
+            <SpeedActionDynamics dynamicsShape="step" value="0" dynamicsDimension="time"/>
+            <SpeedActionTarget><AbsoluteTargetSpeed value="$ped_speed"/></SpeedActionTarget>
+          </SpeedAction></LongitudinalAction></PrivateAction>
+        </Private>
+      </Actions>
+    </Init>
+    <Story name="s"><Act name="a">
+      <ManeuverGroup name="mg" maximumExecutionCount="1">
+        <Actors selectTriggeringEntities="false"><EntityRef entityRef="ego"/></Actors>
+        <Maneuver name="m"><Event name="e" priority="overwrite"><Action name="lc">
+          <PrivateAction><LateralAction><LaneChangeAction>
+            <LaneChangeActionDynamics dynamicsShape="sinusoidal"
+                                      value="$lane_change_time"
+                                      dynamicsDimension="time"/>
+            <LaneChangeTarget><RelativeTargetLane entityRef="ego" value="1"/></LaneChangeTarget>
+          </LaneChangeAction></LateralAction></PrivateAction>
+        </Action></Event></Maneuver>
+      </ManeuverGroup>
+    </Act></Story>
+  </Storyboard>
+</OpenSCENARIO>

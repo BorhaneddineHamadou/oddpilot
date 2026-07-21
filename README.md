@@ -19,6 +19,13 @@ The core is simulator-agnostic and pure Python: scenarios go in as ASAM
 OpenSCENARIO 1.x, reports come out as SARIF, JSON, HTML or SOTIF-style evidence
 artifacts, and execution stays in whatever simulator or test bench you already use.
 
+**Why it matters** ([`studies/generated_corpus/`](studies/generated_corpus/)): with
+every parameter value individually schema-legal, standard generation strategies still
+produce physically impossible scenarios almost every time — random sampling **98.6 %**,
+pairwise combinatorial **100 %**, adversarial criticality search **100 %** (worst of
+all: it actively optimises into impossibility). odd-pilot's operational-model sampling
+brings that to **1.2 %**, and its physcheck gate to **0 %** at 99 % yield.
+
 This is a monorepo hosting two Python distributions:
 
 | Package | Status | Contents |

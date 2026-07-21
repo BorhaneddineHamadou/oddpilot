@@ -1,0 +1,189 @@
+{
+  "random": {
+    "n_files": 500,
+    "n_invalid": 493,
+    "pct_invalid": 98.6,
+    "error_files_by_layer": {
+      "L1": 492,
+      "L2": 221,
+      "L3": 60
+    },
+    "top_rules": [
+      [
+        "SOL-005",
+        247
+      ],
+      [
+        "FRI-013",
+        222
+      ],
+      [
+        "GEO-001",
+        221
+      ],
+      [
+        "PRE-001",
+        176
+      ],
+      [
+        "FRI-023",
+        172
+      ],
+      [
+        "FRI-015",
+        116
+      ],
+      [
+        "FRI-001",
+        93
+      ],
+      [
+        "PRE-011",
+        87
+      ]
+    ],
+    "examples": [
+      "DYN-002: 'ego' changes lane (3.5 m lateral) in 2.04 s: peak lateral acceleration 4.1 m/s^2 exceeds the friction ceiling",
+      "DYN-002: 'ego' changes lane (3.5 m lateral) in 1.61 s: peak lateral acceleration 6.7 m/s^2 exceeds the friction ceiling",
+      "DYN-001: 'ego' is commanded to 34.1 m/s on road '38' whose curve radius at s=14 m is 54 m: lateral acceleration would b"
+    ]
+  },
+  "pairwise": {
+    "n_files": 41,
+    "n_invalid": 41,
+    "pct_invalid": 100.0,
+    "error_files_by_layer": {
+      "L1": 40,
+      "L2": 12,
+      "L3": 23
+    },
+    "top_rules": [
+      [
+        "FRI-013",
+        25
+      ],
+      [
+        "FRI-023",
+        21
+      ],
+      [
+        "DYN-002",
+        19
+      ],
+      [
+        "SOL-005",
+        13
+      ],
+      [
+        "PRE-001",
+        13
+      ],
+      [
+        "GEO-001",
+        12
+      ],
+      [
+        "DYN-001",
+        9
+      ],
+      [
+        "KIN-023",
+        9
+      ]
+    ],
+    "examples": [
+      "DYN-001: 'ego' is commanded to 32.0 m/s on road '38' whose curve radius at s=10 m is 54 m: lateral acceleration would b",
+      "FRI-013: Entity 'ego' declares maxDeceleration = 8.0 m/s^2 but the declared surface (frictionScaleFactor = 0.5, mu ~= 0",
+      "FRI-013: Entity 'ego' declares maxDeceleration = 11.0 m/s^2 but the declared surface (frictionScaleFactor = 0.85, mu ~="
+    ]
+  },
+  "search": {
+    "n_files": 200,
+    "n_invalid": 200,
+    "pct_invalid": 100.0,
+    "error_files_by_layer": {
+      "L1": 200,
+      "L2": 151,
+      "L3": 162
+    },
+    "top_rules": [
+      [
+        "FRI-013",
+        195
+      ],
+      [
+        "DYN-002",
+        162
+      ],
+      [
+        "GEO-001",
+        151
+      ],
+      [
+        "SOL-005",
+        136
+      ],
+      [
+        "FRI-023",
+        90
+      ],
+      [
+        "PRE-001",
+        80
+      ],
+      [
+        "PRE-011",
+        42
+      ],
+      [
+        "KIN-023",
+        19
+      ]
+    ],
+    "examples": [
+      "DYN-002: 'ego' changes lane (3.5 m lateral) in 2.48 s: peak lateral acceleration 2.8 m/s^2 exceeds the friction ceiling",
+      "DYN-002: 'ego' changes lane (3.5 m lateral) in 2.48 s: peak lateral acceleration 2.8 m/s^2 exceeds the friction ceiling",
+      "DYN-002: 'ego' changes lane (3.5 m lateral) in 2.52 s: peak lateral acceleration 2.7 m/s^2 exceeds the friction ceiling"
+    ]
+  },
+  "opmodel": {
+    "n_files": 500,
+    "n_invalid": 6,
+    "pct_invalid": 1.2,
+    "error_files_by_layer": {
+      "L1": 4,
+      "L3": 2
+    },
+    "top_rules": [
+      [
+        "PRE-001",
+        2
+      ],
+      [
+        "DYN-001",
+        2
+      ],
+      [
+        "FRI-016",
+        1
+      ],
+      [
+        "PRE-012",
+        1
+      ]
+    ],
+    "examples": [
+      "PRE-001: precipitationType = 'dry' with nonzero intensity: self-contradictory \u2014 precipitation is by definition an ensem",
+      "DYN-001: 'ego' is commanded to 16.3 m/s on road '38' whose curve radius at s=28 m is 54 m: lateral acceleration would b",
+      "FRI-016: Entity 'ego' declares maxDeceleration = 4.7 m/s^2 in snow at -3.15 degC: snow-covered road mu ~0.2-0.4 bounds "
+    ]
+  },
+  "opmodel_gated": {
+    "n_files": 494,
+    "n_invalid": 0,
+    "pct_invalid": 0.0,
+    "error_files_by_layer": {},
+    "top_rules": [],
+    "examples": []
+  }
+}
