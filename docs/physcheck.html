@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>physcheck — the physical-plausibility linter, explained</title>
+<style>
+  :root {
+    --bg:#ffffff; --fg:#1c2733; --muted:#5b6b7b; --accent:#0b6e4f;
+    --accent-soft:#e7f4ef; --card:#f5f7f9; --border:#dde4ea;
+    --bad:#b3261e; --warnc:#8a6d00; --infoc:#28546e;
+    --code-bg:#10141a; --code-fg:#d7e0ea; --sidebar-w:250px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#10141a; --fg:#e4ebf2; --muted:#9aa8b6; --accent:#4cc79a;
+      --accent-soft:#12291f; --card:#171d26; --border:#2a3441;
+      --bad:#ff8a80; --warnc:#ffd54f; --infoc:#81c8f0;
+      --code-bg:#0a0d12; --code-fg:#cdd8e3;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;
+         background:var(--bg); color:var(--fg); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  nav.side {
+    position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w);
+    overflow-y:auto; background:var(--card); border-right:1px solid var(--border);
+    padding:1.2rem 1rem 2rem; font-size:.88rem;
+  }
+  nav.side .brand { font-weight:800; font-size:1.15rem; margin-bottom:.2rem; }
+  nav.side .brand span { color:var(--accent); }
+  nav.side .ver { color:var(--muted); margin-bottom:1rem; }
+  nav.side h5 { margin:1.1rem 0 .3rem; color:var(--muted);
+               text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
+  nav.side a { display:block; padding:.18rem .4rem; border-radius:6px; color:var(--fg); }
+  nav.side a:hover { background:var(--accent-soft); text-decoration:none; }
+  nav.side a em { float:right; font-style:normal; color:var(--muted); }
+  main { margin-left:var(--sidebar-w); max-width:900px; padding:2.5rem 2.2rem 5rem; }
+  @media (max-width: 900px) {
+    nav.side { position:static; width:auto; border-right:none;
+               border-bottom:1px solid var(--border); }
+    main { margin-left:0; padding:1.5rem 1.2rem 4rem; }
+  }
+  h1 { font-size:2rem; margin:.2rem 0 .5rem; letter-spacing:-.02em; }
+  h2 { font-size:1.4rem; margin:2.6rem 0 .7rem; padding-top:.5rem; }
+  h3 { font-size:1.15rem; margin:2.2rem 0 .4rem; }
+  h3 .count { font-weight:400; font-size:.8rem; color:var(--muted); margin-left:.5rem; }
+  .muted { color:var(--muted); }
+  .pipeline { display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; margin:1.2rem 0; }
+  .pipeline .box { background:var(--accent-soft); color:var(--accent);
+    border:1px solid var(--accent); border-radius:8px; padding:.4rem .8rem;
+    font-weight:600; font-size:.85rem; text-align:center; }
+  .pipeline .a { color:var(--muted); }
+  pre { background:var(--code-bg); color:var(--code-fg); border-radius:10px;
+        padding:1rem 1.2rem; overflow-x:auto; font-size:.85rem; line-height:1.55; }
+  code { font-family:ui-monospace,"SF Mono",Consolas,monospace; }
+  p code, li code, td code, .cond code { background:var(--card);
+    border:1px solid var(--border); border-radius:5px; padding:.05rem .35rem; font-size:.86em; }
+  table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.92rem; }
+  th, td { text-align:left; padding:.5rem .65rem; border-bottom:1px solid var(--border);
+           vertical-align:top; }
+  th { color:var(--muted); }
+  .rule { background:var(--card); border:1px solid var(--border); border-radius:10px;
+          padding: .9rem 1.1rem; margin:.8rem 0; }
+  .rule-head { display:flex; gap:.55rem; align-items:center; flex-wrap:wrap; }
+  .rid { font-family:ui-monospace,Consolas,monospace; font-weight:700; }
+  .sev { border-radius:6px; padding:.02rem .5rem; font-size:.75rem; font-weight:700;
+         text-transform:uppercase; color:var(--bg); }
+  .sev.err { background:var(--bad); }
+  .sev.warn { background:var(--warnc); }
+  .sev.info { background:var(--infoc); }
+  .scope { color:var(--muted); font-size:.8rem; }
+  .rule h4 { margin:.45rem 0 .35rem; font-size:1rem; }
+  .cond { margin:.25rem 0; font-size:.88rem; }
+  .cond span, .src span { color:var(--muted); font-size:.78rem;
+    text-transform:uppercase; letter-spacing:.05em; margin-right:.5rem; }
+  .basis { margin:.45rem 0 .25rem; font-size:.92rem; }
+  .src { margin:.35rem 0 0; font-size:.85rem; color:var(--muted); }
+  .pack { border-top:1px solid var(--border); }
+  .intro { color:var(--muted); }
+  .toprow { display:flex; gap:1rem; flex-wrap:wrap; margin:1.2rem 0; }
+  .stat { flex:1 1 140px; background:var(--card); border:1px solid var(--border);
+    border-radius:10px; padding: .8rem 1rem; text-align:center; }
+  .stat b { display:block; font-size:1.6rem; color:var(--accent); }
+  .stat small { color:var(--muted); }
+</style>
+</head>
+<body>
+<nav class="side">
+  <div class="brand">odd-<span>pilot</span> docs</div>
+  <div class="ver">physcheck 0.5.0</div>
+  <h5>Site</h5>
+  <a href="index.html">← Overview</a>
+  <h5>physcheck</h5>
+  <a href="#what">What it is</a>
+  <a href="#how">How it is implemented</a>
+  <a href="#using">Using it</a>
+  <a href="#extending">Writing your own rules</a>
+  <a href="#trust">Validation</a>
+  <h5>Rule reference (157)</h5>
+  <a href="#pack-schema_ranges">L0 · Schema &amp; ranges <em>14</em></a>
+<a href="#pack-atmosphere">L1 · Atmosphere <em>7</em></a>
+<a href="#pack-precipitation">L1 · Precipitation <em>17</em></a>
+<a href="#pack-friction_road">L1 · Road friction <em>23</em></a>
+<a href="#pack-kinematics">L1 · Kinematics <em>24</em></a>
+<a href="#pack-solar">L1 · Solar <em>8</em></a>
+<a href="#pack-entities">L1 · Entities <em>13</em></a>
+<a href="#pack-version_gating">L0 · Version gating <em>10</em></a>
+<a href="#plugin-l0">L0 · Structural checks (plugin) <em>8</em></a>
+<a href="#plugin-l1">L1 · Cross-state checks (plugin) <em>1</em></a>
+<a href="#plugin-map">L2 · Map cross-checks <em>8</em></a>
+<a href="#plugin-geo">L2 · Solar geometry <em>6</em></a>
+<a href="#plugin-dyn">L3 · Kinematic feasibility <em>7</em></a>
+<a href="#plugin-stb">L4 · Storyboard logic <em>7</em></a>
+<a href="#plugin-odd">L5 · ODD conformance <em>3</em></a>
+<a href="#plugin-sta">L6 · Statistical plausibility <em>1</em></a>
+</nav>
+<main>
+
+<h1>physcheck<span class="muted"> — every rule, explained</span></h1>
+<p>The physical-plausibility linter inside odd-pilot. It reads ASAM
+OpenSCENARIO files and reports everything that is physically impossible,
+internally contradictory, or outside your declared operating domain —
+each finding backed by a citation. This page documents how it works and
+every one of its 157 rules.</p>
+
+<div class="toprow">
+  <div class="stat"><b>157</b><small>rules, all cited</small></div>
+  <div class="stat"><b>7</b><small>independent layers (L0–L6)</small></div>
+  <div class="stat"><b>1</b><small>runtime dependency (PyYAML)</small></div>
+  <div class="stat"><b>0</b><small>false alarms on 1,109 real files</small></div>
+</div>
+
+<h2 id="what">What it is</h2>
+<p>physcheck is a <b>linter</b>: it never runs a simulation. It parses each
+scenario file, reconstructs what the file actually declares — weather, road
+surface, actors, motion, story logic — and evaluates rules against that
+declaration. A finding always carries: the rule id, a severity
+(<b>error</b> = impossible as written, <b>warning</b> = suspicious or rare,
+<b>info</b> = worth knowing), a one-sentence message with the offending
+values, and the literature source the rule is based on.</p>
+<p>The severity philosophy is deliberate: <b>errors are reserved for the
+certainly-impossible</b>. Where physics gives a range, rules use the generous
+end of the published range, so an error means "no real-world configuration
+could produce this file" — not "unusual".</p>
+
+<h2 id="how">How it is implemented</h2>
+<div class="pipeline">
+  <span class="box">.xosc file</span><span class="a">→</span>
+  <span class="box">Parser<br><small>parameters, expressions, catalogs</small></span><span class="a">→</span>
+  <span class="box">Typed Scenario IR</span><span class="a">→</span>
+  <span class="box">Attribute view<br><small>flat, canonical names</small></span><span class="a">→</span>
+  <span class="box">Rule engine<br><small>YAML predicates + built-in analyses</small></span><span class="a">→</span>
+  <span class="box">Findings<br><small>table · JSON · SARIF · HTML</small></span>
+</div>
+<table>
+<tr><th>Component</th><th>What it does, in practice</th></tr>
+<tr><td>Parser</td><td>Reads OpenSCENARIO 1.0–1.3, resolves <code>$parameters</code>,
+  <code>${expressions}</code> and catalog references. It <b>never throws</b>: anything it
+  cannot interpret becomes an L0 finding, so one broken element never hides the
+  rest of the file.</td></tr>
+<tr><td>Scenario IR</td><td>A typed, engine-agnostic model of the file: environments,
+  entities with performance and boxes, speed commands, lane changes, followed
+  trajectories (memory-efficient for replay files with 100,000+ vertices), and the
+  storyboard control structure.</td></tr>
+<tr><td>Attribute view</td><td>The IR flattened into canonically named values
+  (<code>env.precip.type</code>, <code>entity.max_decel_mps2</code>, …). YAML rules only ever see
+  this view — never raw XML. An absent value is an absent key, never a default:
+  a rule that needs a missing attribute silently does not apply.</td></tr>
+<tr><td>YAML rules (116)</td><td>Each is a guarded predicate in a <b>safe expression
+  subset</b> (comparisons, arithmetic, a fixed set of math functions — no arbitrary
+  code). Shown below per rule as "Applies when" / "Requires".</td></tr>
+<tr><td>Built-in analyses (41)</td><td>Checks that need real computation: the
+  OpenDRIVE map frontend (geometry sampling, lane resolution, connectivity), the
+  NOAA/Meeus solar ephemeris, trajectory kinematics with noise-robust windowed
+  estimators, storyboard reachability, ODD evaluation, and the statistical scorer.
+  Each is documented with its rules below.</td></tr>
+<tr><td>Layer gating</td><td>Layers are independent and opt-in: L0–L1 always work
+  from the file alone; L2–L3 activate when a map is available (via <code>--map</code> or the
+  scenario's own RoadNetwork reference); L5 needs an ODD definition; L6 an
+  operational model. Missing inputs skip a layer with a note — never an error.</td></tr>
+<tr><td>Determinism</td><td>Same inputs, same findings: no randomness, no network, no
+  simulator. Suitable as a CI gate (<code>--fail-on error</code> sets the exit code).</td></tr>
+</table>
+<p>Every interpretation decision made while implementing the rules (what a
+missing attribute means, which frame a coordinate is in, how tolerances were
+chosen) is recorded in
+<a href="https://github.com/BorhaneddineHamadou/oddpilot/blob/main/docs/decisions.md">docs/decisions.md</a>
+(D1–D36) — the reviewers' trail behind every threshold on this page.</p>
+
+<h2 id="using">Using it</h2>
+<pre><code># check a folder — layers L0+L1 need nothing but the files
+physcheck lint scenarios/
+
+# add map-based checks (L2+L3): give a map, or let each file's
+# RoadNetwork reference resolve automatically
+physcheck lint scenarios/ --map town04.xodr
+
+# storyboard logic, ODD conformance, statistical realism
+physcheck lint scenarios/ --layers L0,L1,L4
+physcheck lint scenarios/ --odd my_odd.yaml
+odd-pilot lint scenarios/ --layers L0,L1,L6 --model world.bn
+
+# outputs and CI
+physcheck lint scenarios/ --format sarif -o lint.sarif   # GitHub code scanning
+physcheck lint scenarios/ --format html  -o report.html  # shareable page
+physcheck lint scenarios/ --fail-on error                # exit 1 on any error
+
+# understand a finding
+physcheck rules show FRI-013
+physcheck lint s.xosc --explain FRI-013</code></pre>
+<p>Exit codes: <code>0</code> clean, <code>1</code> findings at/above <code>--fail-on</code>,
+<code>3</code> usage error. <code>2</code> is reserved by odd-pilot's <code>assess
+--fail-if-inadequate</code>.</p>
+
+<h2 id="extending">Writing your own rules</h2>
+<p>Teams add domain rules without touching code — a YAML pack with the same
+schema as the built-in catalog, validated by <code>physcheck rules lint</code>:</p>
+<pre><code>pack: my_team
+version: "1.0"
+rules:
+  - id: TEAM-001
+    layer: L1
+    severity: error
+    title: Our simulator cannot render fog below 50 m
+    scope: scenario
+    when: "env.fog.present"
+    assert: "env.fog.visual_range_m >= 50"
+    message: "visualRange={env.fog.visual_range_m} m is below the renderer's floor."
+    units: {env.fog.visual_range_m: m}
+    citation: {source: "Internal renderer spec RD-42", year: 2026}
+
+# validate, then use it
+physcheck rules lint my_rules.yaml
+physcheck lint scenarios/ --rules my_rules.yaml</code></pre>
+
+<h2 id="trust">Validation</h2>
+<p>physcheck is benchmarked on every release against scenario files derived
+from <b>real recorded driving</b> (drone recordings of intersections and
+motorways, camera recordings, roadside-sensor replays): real driving is
+physically plausible by construction, so every error finding there is a
+potential false alarm — and there were <b>0 tool false alarms across 1,109
+files</b>, while all <b>1,819 deliberately injected impossibilities</b> were
+detected. The full protocol, corpora provenance and per-finding triage
+evidence live in the
+<a href="https://github.com/BorhaneddineHamadou/physcheck-benchmark">benchmark repository</a>.</p>
+
+<h2 id="rules">Rule reference</h2>
+<p class="muted">Generated from the shipped catalog (physcheck 0.5.0) —
+116 YAML rules and 41 built-in analyses. "Applies when" is the guard;
+"Requires" must hold or the rule fires. Attribute names are the canonical
+attribute view (<code>env.*</code>, <code>entity.*</code>).</p>
+<section class="pack" id="pack-schema_ranges">
+<h3>L0 · Schema &amp; ranges <span class="count">14 rules · YAML pack <code>schema_ranges.yaml</code></span></h3>
+<p class="intro">Value sanity, one attribute at a time: is each number inside the range that is physically meaningful at all (temperature between 170 and 340 K, pressure between 800 and 1200 hPa, no negative visual range)? These checks need no cross-reasoning — they catch typos, wrong units and placeholder values.</p>
+<article class="rule" id="SCH-101">
+  <div class="rule-head"><span class="rid">SCH-101</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>OSC 1.0 precipitation intensity outside [0, 1]</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.precip.intensity01&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>0 &lt;= env.precip.intensity01 &lt;= 1</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.0.0 Model Documentation, class Precipitation (intensity: double, Range [0..1]) (2020) — <a href="https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Precipitation.html">https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Precipitation.html</a></p>
+</article>
+<article class="rule" id="SCH-102">
+  <div class="rule-head"><span class="rid">SCH-102</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Precipitation intensity (mm/h) negative</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.precip.intensity_mmh&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.precip.intensity_mmh &gt;= 0</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2.0 Model Documentation, class Precipitation (precipitationIntensity: double, mm/h, Range [0..inf[) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-103">
+  <div class="rule-head"><span class="rid">SCH-103</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Precipitation type not a valid enum value</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.precip.type&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.precip.type in [&#x27;dry&#x27;, &#x27;rain&#x27;, &#x27;snow&#x27;]</code></div>
+  <p class="basis">Normative enumeration.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, enumeration PrecipitationType (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-104">
+  <div class="rule-head"><span class="rid">SCH-104</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Cloud state not a valid enum value</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.cloud.state&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.cloud.state in [&#x27;skyOff&#x27;, &#x27;free&#x27;, &#x27;cloudy&#x27;, &#x27;overcast&#x27;, &#x27;rainy&#x27;]</code></div>
+  <p class="basis">Normative enumeration.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.0/1.1 Model Documentation, enumeration CloudState (deprecated in 1.2 in favor of FractionalCloudCover) (2021) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-105">
+  <div class="rule-head"><span class="rid">SCH-105</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Road wetness not a valid enum value</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.road.wetness&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.wetness in [&#x27;dry&#x27;, &#x27;moist&#x27;, &#x27;wetWithPuddles&#x27;, &#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;]</code></div>
+  <p class="basis">Normative enumeration.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2 Model Documentation, enumeration Wetness (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-106">
+  <div class="rule-head"><span class="rid">SCH-106</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Fog visual range not positive</h4>
+  <div class="cond"><span>Applies when</span><code>env.fog.present</code></div>
+  <div class="cond"><span>Requires</span><code>env.fog.visual_range_m &gt; 0</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Fog (visualRange: double, m, Range [0..inf[) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-107">
+  <div class="rule-head"><span class="rid">SCH-107</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Friction scale factor not positive</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &gt; 0</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class RoadCondition (frictionScaleFactor: double, Range ]0..inf[) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-108">
+  <div class="rule-head"><span class="rid">SCH-108</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Weather temperature outside schema range</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.temperature_k&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>170 &lt;= env.temperature_k &lt;= 340</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.1+ Model Documentation, class Weather (temperature: double, K, Range [170..340], since 1.1) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-109">
+  <div class="rule-head"><span class="rid">SCH-109</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Atmospheric pressure outside schema range</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.pressure_pa&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>80000 &lt;= env.pressure_pa &lt;= 120000</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.1+ Model Documentation, class Weather (atmosphericPressure: double, Pa, Range [80000..120000], since 1.1) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-110">
+  <div class="rule-head"><span class="rid">SCH-110</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Sun elevation outside schema range</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.sun.elevation_rad&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>-3.1416 &lt;= env.sun.elevation_rad &lt;= 3.1416</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.0 Model Documentation, class Sun (elevation: double, rad, Range [-PI..PI]) (2020) — <a href="https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html">https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html</a></p>
+</article>
+<article class="rule" id="SCH-111">
+  <div class="rule-head"><span class="rid">SCH-111</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per entity</span></div>
+  <h4>Entity speed negative</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;entity.max_target_speed_mps&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &gt;= 0</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class AbsoluteTargetSpeed (value: speed in m/s, Range [0..inf[) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-112">
+  <div class="rule-head"><span class="rid">SCH-112</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per entity</span></div>
+  <h4>Bounding box with non-positive dimensions</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;entity.length_m&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.length_m &gt; 0 and entity.width_m &gt; 0 and entity.height_m &gt; 0</code></div>
+  <p class="basis">Normative schema range (degenerate boxes break collision semantics).</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Dimensions (length/width/height: double, m, Range [0..inf[) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-113">
+  <div class="rule-head"><span class="rid">SCH-113</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per entity</span></div>
+  <h4>Performance values non-positive or negative</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;entity.max_speed_mps&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_mps &gt;= 0 and entity.max_accel_mps2 &gt;= 0 and entity.max_decel_mps2 &gt;= 0</code></div>
+  <p class="basis">Normative schema ranges.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Performance (maxSpeed/maxAcceleration/maxDeceleration: double, Range [0..inf[) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="SCH-114">
+  <div class="rule-head"><span class="rid">SCH-114</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per entity</span></div>
+  <h4>Entity mass non-positive</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;entity.mass_kg&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.mass_kg &gt; 0</code></div>
+  <p class="basis">Normative schema range.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, Vehicle/Pedestrian mass (kg, Range [0..inf[) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+</section>
+<section class="pack" id="pack-atmosphere">
+<h3>L1 · Atmosphere <span class="count">7 rules · YAML pack <code>atmosphere.yaml</code></span></h3>
+<p class="intro">Atmospheric optics and thermodynamics: fog versus visual range, cloud cover versus sunlight, temperature versus pressure. Derived from meteorology and atmospheric-optics literature.</p>
+<article class="rule" id="ATM-001">
+  <div class="rule-head"><span class="rid">ATM-001</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Fog declared but visual range is not fog</h4>
+  <div class="cond"><span>Applies when</span><code>env.fog.present</code></div>
+  <div class="cond"><span>Requires</span><code>env.fog.visual_range_m &lt; 1000</code></div>
+  <p class="basis">Aeronautical code FG requires MOR &lt; 1000 m; BR (mist) 1000-5000 m.</p>
+  <p class="src"><span>Source</span> American Meteorological Society, &#x27;fog&#x27;, Glossary of Meteorology, 2nd ed.; WMO, Guide to Instruments and Methods of Observation, WMO-No. 8, Vol. I, Ch. 9 (Measurement of visibility) (2021) — <a href="https://glossary.ametsoc.org/wiki/Fog">https://glossary.ametsoc.org/wiki/Fog</a></p>
+</article>
+<article class="rule" id="ATM-002">
+  <div class="rule-head"><span class="rid">ATM-002</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Visual range beyond the Rayleigh-scattering limit of air</h4>
+  <div class="cond"><span>Applies when</span><code>env.fog.present</code></div>
+  <div class="cond"><span>Requires</span><code>env.fog.visual_range_m &lt;= 350000</code></div>
+  <p class="basis">Rayleigh beta ~0.0116 km^-1 at 550 nm sea level: max MOR = 2.996/0.0116 ~258 km (WMO eps=0.05) or 3.912/0.0116 ~337 km (classical eps=0.02).</p>
+  <p class="src"><span>Source</span> Penndorf, R., Tables of the refractive index for standard air and the Rayleigh scattering coefficient..., Journal of the Optical Society of America 47(2):176-182; Middleton, W.E.K., Vision Through the Atmosphere, Univ. of Toronto Press (1952) (1957) — <a href="https://doi.org/10.1364/JOSA.47.000176">https://doi.org/10.1364/JOSA.47.000176</a></p>
+</article>
+<article class="rule" id="ATM-003">
+  <div class="rule-head"><span class="rid">ATM-003</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Visual range too high for the declared rain rate</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27; and env.precip.intensity_mmh &gt;= 5 and env.fog.present</code></div>
+  <div class="cond"><span>Requires</span><code>env.fog.visual_range_m &lt;= 40000 * env.precip.intensity_mmh ** -0.55</code></div>
+  <p class="basis">Weakest corner (a=0.15, b=0.55) with WMO MOR = 2.996/sigma gives ~19.97*R^-0.55 km; predicate doubles it. At R=50 mm/h the bound is ~4.6 km; a declared 10 km is flagged.</p>
+  <p class="src"><span>Source</span> Atlas, D., Optical extinction by rainfall, Journal of Meteorology 10(6):486-488; disdrometer sigma-R studies (Atmosfera 39, 2025) (1953) — <a href="https://doi.org/10.1175/1520-0469(1953)010&lt;0486:OEBR&gt;2.0.CO;2">https://doi.org/10.1175/1520-0469(1953)010&lt;0486:OEBR&gt;2.0.CO;2</a></p>
+</article>
+<article class="rule" id="ATM-004">
+  <div class="rule-head"><span class="rid">ATM-004</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Visual range too high for the declared snowfall rate</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;snow&#x27; and env.precip.intensity_mmh &gt;= 0.5 and env.fog.present</code></div>
+  <div class="cond"><span>Requires</span><code>env.fog.visual_range_m &lt;= 10000 / env.precip.intensity_mmh</code></div>
+  <p class="basis">At 1 mm/h LE, visibility ~1 km; inverse proportionality with crystal-type spread 3-10x.</p>
+  <p class="src"><span>Source</span> Rasmussen, R.M., Vivekanandan, J., Cole, J., Myers, B., Masters, C., The Estimation of Snowfall Rate Using Visibility, Journal of Applied Meteorology 38(10):1542-1563 (1999) — <a href="https://doi.org/10.1175/1520-0450(1999)038&lt;1542:TEOSRU&gt;2.0.CO;2">https://doi.org/10.1175/1520-0450(1999)038&lt;1542:TEOSRU&gt;2.0.CO;2</a></p>
+</article>
+<article class="rule" id="ATM-005">
+  <div class="rule-head"><span class="rid">ATM-005</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Liquid fog below the homogeneous freezing point</h4>
+  <div class="cond"><span>Applies when</span><code>env.fog.present and env.fog.visual_range_m &lt; 1000</code></div>
+  <div class="cond"><span>Requires</span><code>env.temperature_c &gt;= -40</code></div>
+  <p class="basis">Homogeneous nucleation eliminates liquid droplets below ~-38 degC.</p>
+  <p class="src"><span>Source</span> Pruppacher, H.R. &amp; Klett, J.D., Microphysics of Clouds and Precipitation, 2nd ed., Kluwer (homogeneous freezing ~-38 degC); AMS Glossary, &#x27;ice fog&#x27; (1997) — <a href="https://doi.org/10.1007/978-0-306-48100-0">https://doi.org/10.1007/978-0-306-48100-0</a></p>
+</article>
+<article class="rule" id="ATM-006">
+  <div class="rule-head"><span class="rid">ATM-006</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Overcast sky with clear-sky sun illuminance</h4>
+  <div class="cond"><span>Applies when</span><code>env.cloud.oktas &gt;= 8 and env.sun.elevation_rad &gt;= 0.1745</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_lux &lt;= 50000</code></div>
+  <p class="basis">Overcast global horizontal 5-20 klux vs clear ~100 klux at the same elevation.</p>
+  <p class="src"><span>Source</span> CIE S 011/E:2003 (ISO 15469:2004) Standard General Sky; IESNA Lighting Handbook 10th ed. (daylight availability); Littlefair, P.J., The luminous efficacy of daylight: a review, Lighting Research &amp; Technology 17(4):162-182 (1985) — <a href="https://doi.org/10.1177/14771535850170040401">https://doi.org/10.1177/14771535850170040401</a></p>
+</article>
+<article class="rule" id="ATM-007">
+  <div class="rule-head"><span class="rid">ATM-007</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Dense fog with full daytime sun illuminance</h4>
+  <div class="cond"><span>Applies when</span><code>env.fog.present and env.fog.visual_range_m &lt; 200 and env.sun.elevation_rad &gt; 0.1745</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_lux &lt;= 50000</code></div>
+  <p class="basis">Vis 200 m =&gt; sigma ~15 km^-1; ~100 m fog depth gives direct-beam optical depth ~1.5.</p>
+  <p class="src"><span>Source</span> Middleton, W.E.K., Vision Through the Atmosphere, Univ. of Toronto Press (1952); Gultepe, I. et al., Fog research: a review, Pure and Applied Geophysics 164:1121-1159 (2007) — <a href="https://doi.org/10.1007/s00024-007-0211-x">https://doi.org/10.1007/s00024-007-0211-x</a></p>
+</article>
+</section>
+<section class="pack" id="pack-precipitation">
+<h3>L1 · Precipitation <span class="count">17 rules · YAML pack <code>precipitation.yaml</code></span></h3>
+<p class="intro">Rain and snow microphysics: precipitation type versus temperature, intensity versus cloud state, wind extremes. The classic catch: snowfall at +30 °C.</p>
+<article class="rule" id="PRE-001">
+  <div class="rule-head"><span class="rid">PRE-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Precipitation type dry with nonzero intensity</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;dry&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>not ((exists(&#x27;env.precip.intensity_mmh&#x27;) and env.precip.intensity_mmh &gt; 0) or (exists(&#x27;env.precip.intensity01&#x27;) and env.precip.intensity01 &gt; 0))</code></div>
+  <p class="basis">Definitional consistency of the ASAM enumeration with the WMO definition.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2 Model Documentation, class Precipitation; WMO, International Cloud Atlas (WMO-No. 407), hydrometeor definitions (2017) — <a href="https://cloudatlas.wmo.int/en/hydrometeors-falling-particles.html">https://cloudatlas.wmo.int/en/hydrometeors-falling-particles.html</a></p>
+</article>
+<article class="rule" id="PRE-002">
+  <div class="rule-head"><span class="rid">PRE-002</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain or snow declared with zero intensity</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type in [&#x27;rain&#x27;, &#x27;snow&#x27;] and (exists(&#x27;env.precip.intensity_mmh&#x27;) or exists(&#x27;env.precip.intensity01&#x27;))</code></div>
+  <div class="cond"><span>Requires</span><code>(exists(&#x27;env.precip.intensity_mmh&#x27;) and env.precip.intensity_mmh &gt; 0) or (exists(&#x27;env.precip.intensity01&#x27;) and env.precip.intensity01 &gt; 0)</code></div>
+  <p class="basis">Definitional.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2 Model Documentation, class Precipitation; WMO-No. 407 precipitation definition (2017) — <a href="https://cloudatlas.wmo.int/en/hydrometeors-falling-particles.html">https://cloudatlas.wmo.int/en/hydrometeors-falling-particles.html</a></p>
+</article>
+<article class="rule" id="PRE-003">
+  <div class="rule-head"><span class="rid">PRE-003</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain rate in the violent-cloudburst class</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.precip.intensity_mmh &lt;= 50</code></div>
+  <p class="basis">Class bounds 2/10/50 mm/h (showers); heavy rain &gt; 4 mm/h (dynamic rain).</p>
+  <p class="src"><span>Source</span> UK Met Office, National Meteorological Library Fact Sheet 3, Water in the atmosphere (rain intensity classes); WMO Aviation Hazards - Precipitation (violent showers &gt; 50 mm/h) (2012) — <a href="https://community.wmo.int/site/knowledge-hub/programmes-and-initiatives/aviation/aviation-hazards-precipitation">https://community.wmo.int/site/knowledge-hub/programmes-and-initiatives/aviation/aviation-hazards-precipitation</a></p>
+</article>
+<article class="rule" id="PRE-004">
+  <div class="rule-head"><span class="rid">PRE-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain rate beyond the world-record sustained rate</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.precip.intensity_mmh &lt;= 436</code></div>
+  <p class="basis">305 mm / 42 min = 435.7 mm/h.</p>
+  <p class="src"><span>Source</span> Lott, G.A., The world-record 42-minute Holt, Missouri, rainstorm, Monthly Weather Review 82(2):50-59 (1954) — <a href="https://doi.org/10.1175/1520-0493(1954)082&lt;0050:TWMHMR&gt;2.0.CO;2">https://doi.org/10.1175/1520-0493(1954)082&lt;0050:TWMHMR&gt;2.0.CO;2</a></p>
+</article>
+<article class="rule" id="PRE-005">
+  <div class="rule-head"><span class="rid">PRE-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Precipitation rate beyond the one-minute world record</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type in [&#x27;rain&#x27;, &#x27;snow&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>env.precip.intensity_mmh &lt;= 1872</code></div>
+  <p class="basis">WMO-ratified 1-minute record 31.2 mm.</p>
+  <p class="src"><span>Source</span> U.S. Weather Bureau, World record one-minute rainfall at Unionville, Maryland, Monthly Weather Review 87(8):303-306 (1959); WMO World Weather and Climate Extremes Archive (1959) — <a href="https://wmo.asu.edu/content/world-greatest-one-minute-rainfall">https://wmo.asu.edu/content/world-greatest-one-minute-rainfall</a></p>
+</article>
+<article class="rule" id="PRE-006">
+  <div class="rule-head"><span class="rid">PRE-006</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Snowfall liquid-equivalent rate in extreme lake-effect territory</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;snow&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.precip.intensity_mmh &lt;= 10</code></div>
+  <p class="basis">Heavy snow LE rates order 1-3 mm/h; extreme bands ~10 mm/h.</p>
+  <p class="src"><span>Source</span> Rasmussen, R.M. et al., The Estimation of Snowfall Rate Using Visibility, Journal of Applied Meteorology 38(10):1542-1563 (1999) — <a href="https://doi.org/10.1175/1520-0450(1999)038&lt;1542:TEOSRU&gt;2.0.CO;2">https://doi.org/10.1175/1520-0450(1999)038&lt;1542:TEOSRU&gt;2.0.CO;2</a></p>
+</article>
+<article class="rule" id="PRE-007">
+  <div class="rule-head"><span class="rid">PRE-007</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Snowfall liquid-equivalent rate beyond anything recorded</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;snow&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.precip.intensity_mmh &lt;= 50</code></div>
+  <p class="basis">Record ~30 mm/h LE; 50 mm/h never observed for snow.</p>
+  <p class="src"><span>Source</span> Rasmussen, R.M. et al., J. Appl. Meteor. 38:1542-1563 (1999); NWS record snowfall-rate documentation (Copenhagen, NY, 2 Dec 1966) (1999) — <a href="https://doi.org/10.1175/1520-0450(1999)038&lt;1542:TEOSRU&gt;2.0.CO;2">https://doi.org/10.1175/1520-0450(1999)038&lt;1542:TEOSRU&gt;2.0.CO;2</a></p>
+</article>
+<article class="rule" id="PRE-008">
+  <div class="rule-head"><span class="rid">PRE-008</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain at sub-freezing temperature is freezing rain</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.temperature_c &gt;= 0</code></div>
+  <p class="basis">Freezing precipitation concentrates within a few degrees below freezing.</p>
+  <p class="src"><span>Source</span> Cortinas Jr., J.V., Bernstein, B.C., Robbins, C.C., Strapp, J.W., An Analysis of Freezing Rain, Freezing Drizzle, and Ice Pellets across the United States and Canada: 1976-90, Weather and Forecasting 19(2):377-390 (2004) — <a href="https://doi.org/10.1175/1520-0434(2004)019&lt;0377:AAOFRF&gt;2.0.CO;2">https://doi.org/10.1175/1520-0434(2004)019&lt;0377:AAOFRF&gt;2.0.CO;2</a></p>
+</article>
+<article class="rule" id="PRE-009">
+  <div class="rule-head"><span class="rid">PRE-009</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain at deep-freeze temperature</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.temperature_c &gt;= -12</code></div>
+  <p class="basis">9312-event climatology: surface temperatures overwhelmingly in [-10, 0] degC.</p>
+  <p class="src"><span>Source</span> Cortinas Jr. et al., Weather and Forecasting 19(2):377-390 (2004); Lu, G. et al., Occurrence of Warm Freezing Rain, J. Geophys. Res. Atmospheres 127 (2022) (2004) — <a href="https://doi.org/10.1029/2021JD036242">https://doi.org/10.1029/2021JD036242</a></p>
+</article>
+<article class="rule" id="PRE-010">
+  <div class="rule-head"><span class="rid">PRE-010</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Snow above the 95th-percentile rain-snow threshold</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;snow&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.temperature_c &lt;= 2.4</code></div>
+  <p class="basis">17.8 M observations: mean threshold 1.0 degC; 95% range -0.4..+2.4 degC.</p>
+  <p class="src"><span>Source</span> Jennings, K.S., Winchell, T.S., Livneh, B., Molotch, N.P., Spatial variation of the rain-snow temperature threshold across the Northern Hemisphere, Nature Communications 9:1148 (2018) — <a href="https://doi.org/10.1038/s41467-018-03629-7">https://doi.org/10.1038/s41467-018-03629-7</a></p>
+</article>
+<article class="rule" id="PRE-011">
+  <div class="rule-head"><span class="rid">PRE-011</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Snow at temperature where snow probability is zero</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;snow&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.temperature_c &lt;= 6.1</code></div>
+  <p class="basis">Probability of snow ~50% at 2.5 degC, ~0% at 6.1 degC.</p>
+  <p class="src"><span>Source</span> Auer, A.H. Jr., The Rain versus Snow Threshold Temperatures, Weatherwise 27(2):67 (1974) — <a href="https://doi.org/10.1080/00431672.1974.9931684">https://doi.org/10.1080/00431672.1974.9931684</a></p>
+</article>
+<article class="rule" id="PRE-012">
+  <div class="rule-head"><span class="rid">PRE-012</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Precipitation from a cloud-free sky</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type in [&#x27;rain&#x27;, &#x27;snow&#x27;] and ((exists(&#x27;env.precip.intensity_mmh&#x27;) and env.precip.intensity_mmh &gt; 0) or (exists(&#x27;env.precip.intensity01&#x27;) and env.precip.intensity01 &gt; 0))</code></div>
+  <div class="cond"><span>Requires</span><code>not ((exists(&#x27;env.cloud.oktas&#x27;) and env.cloud.oktas == 0) or (exists(&#x27;env.cloud.state&#x27;) and env.cloud.state == &#x27;free&#x27;))</code></div>
+  <p class="basis">Definitional: no cloud =&gt; no precipitation source.</p>
+  <p class="src"><span>Source</span> WMO, International Cloud Atlas (WMO-No. 407), 2017: rain is &#x27;precipitation of drops of water... which falls from a cloud&#x27;; AMS Glossary, &#x27;serein&#x27; (2017) — <a href="https://cloudatlas.wmo.int/en/rain.html">https://cloudatlas.wmo.int/en/rain.html</a></p>
+</article>
+<article class="rule" id="PRE-013">
+  <div class="rule-head"><span class="rid">PRE-013</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Heavy precipitation with mostly clear sky</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.intensity_mmh &gt;= 10</code></div>
+  <div class="cond"><span>Requires</span><code>env.cloud.oktas &gt;= 4</code></div>
+  <p class="basis">Heavy rates require Ns/Cb overhead; conservative 4-okta bound, warning severity.</p>
+  <p class="src"><span>Source</span> WMO, International Cloud Atlas (WMO-No. 407), associated cloud forms table (precipitation vs producing genera Ns/Cb) (2017) — <a href="https://cloudatlas.wmo.int/en/associated-cloud-forms-table.html">https://cloudatlas.wmo.int/en/associated-cloud-forms-table.html</a></p>
+</article>
+<article class="rule" id="PRE-014">
+  <div class="rule-head"><span class="rid">PRE-014</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Air temperature outside recorded Earth extremes</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.temperature_c&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>-89.2 &lt;= env.temperature_c &lt;= 56.7</code></div>
+  <p class="basis">WMO-ratified global temperature extremes.</p>
+  <p class="src"><span>Source</span> WMO World Weather and Climate Extremes Archive (Arizona State University), Records of Weather and Climate Extremes (2024) — <a href="https://wmo.asu.edu/content/world-meteorological-organization-global-weather-climate-extremes-archive">https://wmo.asu.edu/content/world-meteorological-organization-global-weather-climate-extremes-archive</a></p>
+</article>
+<article class="rule" id="PRE-015">
+  <div class="rule-head"><span class="rid">PRE-015</span>
+    <span class="sev info">info</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Crosswind above the vehicle-control difficulty threshold</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.wind.speed_mps&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.wind.speed_mps &lt;= 17.5</code></div>
+  <p class="basis">Control difficulty &gt;17.5 m/s; accidents observed ~20 m/s crosswind (Han et al. 2019).</p>
+  <p class="src"><span>Source</span> Coleman, S.A. &amp; Baker, C.J., Design criteria of wind barriers for traffic. Part 1: Wind barrier performance, Journal of Wind Engineering and Industrial Aerodynamics (1994) — <a href="https://doi.org/10.1016/0167-6105(94)90067-1">https://doi.org/10.1016/0167-6105(94)90067-1</a></p>
+</article>
+<article class="rule" id="PRE-016">
+  <div class="rule-head"><span class="rid">PRE-016</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Hurricane-force wind in a driving scenario</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.wind.speed_mps&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.wind.speed_mps &lt; 32.7</code></div>
+  <p class="basis">Force 12 begins at 32.7 m/s (v = 0.836 B^1.5).</p>
+  <p class="src"><span>Source</span> WMO Beaufort wind-scale speed equivalents (Manual on Codes, WMO-No. 306); Met Office Beaufort scale tabulation (2019) — <a href="https://weather.metoffice.gov.uk/guides/coast-and-sea/beaufort-scale">https://weather.metoffice.gov.uk/guides/coast-and-sea/beaufort-scale</a></p>
+</article>
+<article class="rule" id="PRE-017">
+  <div class="rule-head"><span class="rid">PRE-017</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Wind above the world-record surface gust</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.wind.speed_mps&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.wind.speed_mps &lt;= 113.3</code></div>
+  <p class="basis">WMO-ratified 3-s gust record 113.3 m/s; sustained maxima are lower.</p>
+  <p class="src"><span>Source</span> Courtney, J. et al., Documentation and verification of the world extreme wind gust record: 113.3 m/s on Barrow Island, Australia, Australian Meteorological and Oceanographic Journal 62:1-9 (2012) — <a href="https://doi.org/10.22499/2.6201.001">https://doi.org/10.22499/2.6201.001</a></p>
+</article>
+</section>
+<section class="pack" id="pack-friction_road">
+<h3>L1 · Road friction <span class="count">23 rules · YAML pack <code>friction_road.yaml</code></span></h3>
+<p class="intro">The precipitation → wetness → friction chain: what tire–road friction is possible on the declared surface, and what braking/acceleration that permits. Grounded in vehicle-dynamics handbooks (Pacejka, Gillespie, Bosch) and road-friction measurement studies.</p>
+<article class="rule" id="FRI-001">
+  <div class="rule-head"><span class="rid">FRI-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Wet or moist road cannot exceed dry-baseline friction</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness != &#x27;dry&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 1.0</code></div>
+  <p class="basis">Bosch: mu drops from ~0.85 (dry, 50 km/h) to ~0.65 with 0.2 mm water film and ~0.55 with ~1 mm film.</p>
+  <p class="src"><span>Source</span> Robert Bosch GmbH, Automotive Handbook, 4th ed., p. 330 (tire friction table); Hall, J.W. et al., Guide for Pavement Friction, NCHRP Web-Only Document 108, TRB (2009) — <a href="https://doi.org/10.17226/23038">https://doi.org/10.17226/23038</a></p>
+</article>
+<article class="rule" id="FRI-002">
+  <div class="rule-head"><span class="rid">FRI-002</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Dry road friction scale should be near 1</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness == &#x27;dry&#x27; and env.precip.type == &#x27;dry&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>0.8 &lt;= env.road.friction_scale &lt;= 1.2</code></div>
+  <p class="basis">SAE 830612 skid tests: dry asphalt locked-wheel mu ~0.55-0.9, peak to ~1.0; band 0.8-1.2 corresponds to mu ~0.72-1.08 about a 0.9 reference.</p>
+  <p class="src"><span>Source</span> Warner, C.Y., Smith, G.C., James, M.B., Germane, G.J., Friction Applications in Accident Reconstruction, SAE Technical Paper 830612; Bosch Automotive Handbook, 4th ed., p. 330 (1983) — <a href="https://doi.org/10.4271/830612">https://doi.org/10.4271/830612</a></p>
+</article>
+<article class="rule" id="FRI-003">
+  <div class="rule-head"><span class="rid">FRI-003</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Puddled wet road implies reduced friction</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness == &#x27;wetWithPuddles&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.9</code></div>
+  <p class="basis">Bosch &#x27;puddles, 2 mm water&#x27;: mu 0.5 at 50 km/h, 0.05 at 90 km/h.</p>
+  <p class="src"><span>Source</span> Warner et al., SAE 830612 (wet asphalt locked-wheel mu ~0.45-0.8 vs dry ~0.55-0.9); Bosch Automotive Handbook, 4th ed., p. 330 (1983) — <a href="https://doi.org/10.4271/830612">https://doi.org/10.4271/830612</a></p>
+</article>
+<article class="rule" id="FRI-004">
+  <div class="rule-head"><span class="rid">FRI-004</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Low-flooded road implies strongly reduced friction</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness == &#x27;lowFlooded&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.8</code></div>
+  <p class="basis">At and above hydroplaning speed braking traction falls to near zero (mu ~0.05); deeper films collapse friction at lower speeds (Gallaway, FHWA-RD-79-31, 1979).</p>
+  <p class="src"><span>Source</span> Horne, W.B., Dreher, R.C., Phenomena of Pneumatic Tire Hydroplaning, NASA TN D-2056, NASA Langley (1963) — <a href="https://ntrs.nasa.gov/citations/19640000612">https://ntrs.nasa.gov/citations/19640000612</a></p>
+</article>
+<article class="rule" id="FRI-005">
+  <div class="rule-head"><span class="rid">FRI-005</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>High-flooded road implies hydroplaning-range friction</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness == &#x27;highFlooded&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.6</code></div>
+  <p class="basis">Bosch 2 mm-water column: mu 0.5 -&gt; 0.05 between 50 and 90 km/h.</p>
+  <p class="src"><span>Source</span> Horne &amp; Dreher, NASA TN D-2056; Gallaway, B.M. et al., Pavement and Geometric Design Criteria for Minimizing Hydroplaning, FHWA-RD-79-31, FHWA (1979) (1963) — <a href="https://ntrs.nasa.gov/citations/19640000612">https://ntrs.nasa.gov/citations/19640000612</a></p>
+</article>
+<article class="rule" id="FRI-006">
+  <div class="rule-head"><span class="rid">FRI-006</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Friction scale above physical tire grip ceiling</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 1.3</code></div>
+  <p class="basis">Peak mu for passenger tires on dry pavement ~0.9-1.2; higher values require racing slicks/downforce, out of scope for road scenarios.</p>
+  <p class="src"><span>Source</span> Pacejka, H.B., Tire and Vehicle Dynamics, 3rd ed., Butterworth-Heinemann, Ch. 1; Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 10 (2012) — <a href="https://doi.org/10.1016/C2010-0-68548-8">https://doi.org/10.1016/C2010-0-68548-8</a></p>
+</article>
+<article class="rule" id="FRI-007">
+  <div class="rule-head"><span class="rid">FRI-007</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Friction scale below wet-ice minimum</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &gt;= 0.05</code></div>
+  <p class="basis">Wet smooth ice mu &gt;= ~0.05; full dynamic hydroplaning residual ~0.05.</p>
+  <p class="src"><span>Source</span> Wallman, C.-G., Åström, H., Friction Measurement Methods and the Correlation Between Road Friction and Traffic Safety, VTI Meddelande 911A, Swedish National Road and Transport Research Institute (2001) — <a href="https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf">https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf</a></p>
+</article>
+<article class="rule" id="FRI-008">
+  <div class="rule-head"><span class="rid">FRI-008</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain wets the road</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27; and env.precip.intensity_mmh &gt;= 0.5</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.wetness != &#x27;dry&#x27;</code></div>
+  <p class="basis">Gallaway water-film equation yields nonzero film depth for steady I &gt;= ~0.5 mm/h on real pavements.</p>
+  <p class="src"><span>Source</span> Gallaway, B.M. et al., Pavement and Geometric Design Criteria for Minimizing Hydroplaning, FHWA-RD-79-31, FHWA (water film depth ~ I^0.59) (1979) — <a href="https://rosap.ntl.bts.gov/view/dot/25555">https://rosap.ntl.bts.gov/view/dot/25555</a></p>
+</article>
+<article class="rule" id="FRI-009">
+  <div class="rule-head"><span class="rid">FRI-009</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain wets the road (OSC 1.0 unitless intensity)</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27; and env.precip.intensity01 &gt;= 0.1 and not exists(&#x27;env.precip.intensity_mmh&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.wetness != &#x27;dry&#x27;</code></div>
+  <p class="basis">As FRI-008; OSC 1.0 intensity has no physical unit (docs/decisions.md D6).</p>
+  <p class="src"><span>Source</span> Gallaway, B.M. et al., FHWA-RD-79-31, FHWA (1979) — <a href="https://rosap.ntl.bts.gov/view/dot/25555">https://rosap.ntl.bts.gov/view/dot/25555</a></p>
+</article>
+<article class="rule" id="FRI-010">
+  <div class="rule-head"><span class="rid">FRI-010</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Heavy rain implies standing water, not mere moisture</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27; and env.precip.intensity_mmh &gt;= 10 and exists(&#x27;env.road.wetness&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.wetness in [&#x27;wetWithPuddles&#x27;, &#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;]</code></div>
+  <p class="basis">PAVDRN/Gallaway: I ~= 10 mm/h, drainage path &gt;= 6 m, cross-slope 2% -&gt; film depth &gt; texture depth (~0.5-1 mm).</p>
+  <p class="src"><span>Source</span> Anderson, D.A. et al., PAVDRN: Computer Model for Predicting Water Film Thickness and Potential for Hydroplaning, Transportation Research Record 1599; Gallaway et al., FHWA-RD-79-31 (1998) — <a href="https://doi.org/10.3141/1599-11">https://doi.org/10.3141/1599-11</a></p>
+</article>
+<article class="rule" id="FRI-011">
+  <div class="rule-head"><span class="rid">FRI-011</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Flooded road at highway speed implies hydroplaning friction</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness in [&#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;] and scenario.max_speed_mps &gt;= 27</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.4</code></div>
+  <p class="basis">Vp = 9*sqrt(35) ~= 53 kt ~= 27 m/s; above Vp braking friction ~0.05. Flooded states imply water depth at/above the ~2.4 mm hydroplaning-supporting depth.</p>
+  <p class="src"><span>Source</span> Horne &amp; Dreher, NASA TN D-2056 (Vp[kt] = 9*sqrt(p[psi]) =&gt; ~98 km/h at 35 psi); Gallaway et al., FHWA-RD-79-31 (1963) — <a href="https://ntrs.nasa.gov/citations/19640000612">https://ntrs.nasa.gov/citations/19640000612</a></p>
+</article>
+<article class="rule" id="FRI-012">
+  <div class="rule-head"><span class="rid">FRI-012</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Wet friction drops with speed</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness in [&#x27;wetWithPuddles&#x27;, &#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;] and scenario.max_speed_mps &gt;= 25</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.75</code></div>
+  <p class="basis">Bosch: wet (1 mm) mu falls 0.55 -&gt; 0.3 -&gt; 0.2 at 50/90/130 km/h while dry falls only 0.85 -&gt; 0.75.</p>
+  <p class="src"><span>Source</span> Kummer, H.W., Meyer, W.E., Tentative Skid-Resistance Requirements for Main Rural Highways, NCHRP Report 37, Highway Research Board; Hall et al., NCHRP Web Doc 108 (Penn State friction-speed model) (1967) — <a href="https://onlinepubs.trb.org/Onlinepubs/nchrp/nchrp_rpt_37.pdf">https://onlinepubs.trb.org/Onlinepubs/nchrp/nchrp_rpt_37.pdf</a></p>
+</article>
+<article class="rule" id="FRI-013">
+  <div class="rule-head"><span class="rid">FRI-013</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Braking capability exceeds friction limit of declared surface</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and exists(&#x27;entity.max_decel_mps2&#x27;) and exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &lt;= env.road.friction_scale * 0.9 * 9.81 * 1.35</code></div>
+  <p class="basis">F_brake &lt;= mu*N; on flat road N = m*g so a &lt;= mu*g regardless of brake power. Exceeding mu*g needs aerodynamic downforce.</p>
+  <p class="src"><span>Source</span> Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE International R-114, Ch. 3 &#x27;Braking Performance&#x27; (Dx_max = mu_p * g on level ground) (1992) — <a href="https://doi.org/10.4271/R-114">https://doi.org/10.4271/R-114</a></p>
+</article>
+<article class="rule" id="FRI-014">
+  <div class="rule-head"><span class="rid">FRI-014</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Full braking below type-approval minimum on dry road</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;car&#x27; and env.road.wetness == &#x27;dry&#x27; and exists(&#x27;entity.max_decel_mps2&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &gt;= 6.43</code></div>
+  <p class="basis">R13-H Type-0: dm &gt;= 6.43 m/s^2 from 100 km/h; US FMVSS 135 implies mean decel &gt;= 5.5 m/s^2.</p>
+  <p class="src"><span>Source</span> UN Regulation No. 13-H, Uniform provisions concerning the approval of passenger cars with regard to braking, UNECE, Annex 3 (Type-0 test) (2015) — <a href="https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20">https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20</a></p>
+</article>
+<article class="rule" id="FRI-015">
+  <div class="rule-head"><span class="rid">FRI-015</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Braking capability impossible on wet surface</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and env.road.wetness in [&#x27;wetWithPuddles&#x27;, &#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;] and exists(&#x27;entity.max_decel_mps2&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &lt;= 7.8</code></div>
+  <p class="basis">mu*g with wet asphalt mu 0.5-0.8 -&gt; 4.9-7.8 m/s^2.</p>
+  <p class="src"><span>Source</span> Warner et al., Friction Applications in Accident Reconstruction, SAE 830612 (surface drag-factor tables); Gillespie, Fundamentals of Vehicle Dynamics, Ch. 3 (1983) — <a href="https://doi.org/10.4271/830612">https://doi.org/10.4271/830612</a></p>
+</article>
+<article class="rule" id="FRI-016">
+  <div class="rule-head"><span class="rid">FRI-016</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Braking capability impossible on snow</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and env.precip.type == &#x27;snow&#x27; and env.temperature_c &lt;= 0 and exists(&#x27;entity.max_decel_mps2&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &lt;= 4.0</code></div>
+  <p class="basis">mu*g with snow mu 0.2-0.4 -&gt; 2.0-3.9 m/s^2.</p>
+  <p class="src"><span>Source</span> Wallman &amp; Åström, VTI Meddelande 911A (packed snow mu ~0.2-0.3, loose snow ~0.2-0.5); Warner et al., SAE 830612 (packed snow 0.30-0.55) (2001) — <a href="https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf">https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf</a></p>
+</article>
+<article class="rule" id="FRI-017">
+  <div class="rule-head"><span class="rid">FRI-017</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Snow-state friction scale on snowy road</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;snow&#x27; and env.temperature_c &lt;= 0 and exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.5</code></div>
+  <p class="basis">Packed snow mu ~0.2-0.3, loose snow ~0.2-0.5; ratio to dry 0.9 gives &lt;= ~0.5.</p>
+  <p class="src"><span>Source</span> Wallman &amp; Åström, VTI Meddelande 911A; Bosch Automotive Handbook 4th ed. p. 330 (snow mu ~0.2); Warner et al., SAE 830612 (2001) — <a href="https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf">https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf</a></p>
+</article>
+<article class="rule" id="FRI-018">
+  <div class="rule-head"><span class="rid">FRI-018</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Freezing wet road implies near-ice friction</h4>
+  <div class="cond"><span>Applies when</span><code>env.temperature_c &lt;= 0 and env.road.wetness in [&#x27;moist&#x27;, &#x27;wetWithPuddles&#x27;, &#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;] and exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.35</code></div>
+  <p class="basis">0.35 x 0.9 = mu 0.315, generous for rough/sanded ice.</p>
+  <p class="src"><span>Source</span> Wallman &amp; Åström, VTI Meddelande 911A (black ice mu ~0.1-0.15, wet ice ~0.05); Warner et al., SAE 830612 (smooth ice mu 0.10-0.25) (2001) — <a href="https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf">https://www.diva-portal.org/smash/get/diva2:673366/FULLTEXT01.pdf</a></p>
+</article>
+<article class="rule" id="FRI-019">
+  <div class="rule-head"><span class="rid">FRI-019</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Liquid water on road at deep-freeze temperature</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness in [&#x27;moist&#x27;, &#x27;wetWithPuddles&#x27;, &#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>env.temperature_c &gt; -10</code></div>
+  <p class="basis">Practical anti-icing (NaCl) effectiveness limit ~-10 degC pavement temperature.</p>
+  <p class="src"><span>Source</span> Ketcham, S.A., Minsk, L.D., Blackburn, R.R., Fleege, E.J., Manual of Practice for an Effective Anti-icing Program, FHWA-RD-95-202, FHWA (1996) — <a href="https://www.fhwa.dot.gov/reports/mopeap/eapcov.htm">https://www.fhwa.dot.gov/reports/mopeap/eapcov.htm</a></p>
+</article>
+<article class="rule" id="FRI-020">
+  <div class="rule-head"><span class="rid">FRI-020</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Liquid water on road below brine eutectic</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.wetness in [&#x27;moist&#x27;, &#x27;wetWithPuddles&#x27;, &#x27;lowFlooded&#x27;, &#x27;highFlooded&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>env.temperature_c &gt; -21</code></div>
+  <p class="basis">NaCl brine eutectic -21.1 degC is the lower bound for liquid water on treated roads.</p>
+  <p class="src"><span>Source</span> Ketcham et al., Manual of Practice for an Effective Anti-icing Program, FHWA-RD-95-202, FHWA (NaCl eutectic -21.1 degC at 23.3% concentration) (1996) — <a href="https://www.fhwa.dot.gov/reports/mopeap/eapcov.htm">https://www.fhwa.dot.gov/reports/mopeap/eapcov.htm</a></p>
+</article>
+<article class="rule" id="FRI-021">
+  <div class="rule-head"><span class="rid">FRI-021</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Rain at freezing temperature implies glaze-ice friction</h4>
+  <div class="cond"><span>Applies when</span><code>env.precip.type == &#x27;rain&#x27; and env.temperature_c &lt;= 0 and exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.road.friction_scale &lt;= 0.35</code></div>
+  <p class="basis">Freezing-rain surface temperatures overwhelmingly in [-10, 0] degC; glaze mu ~0.05-0.15 (VTI 911A).</p>
+  <p class="src"><span>Source</span> Cortinas Jr., J.V., Bernstein, B.C., Robbins, C.C., Strapp, J.W., An Analysis of Freezing Rain, Freezing Drizzle, and Ice Pellets across the United States and Canada: 1976-90, Weather and Forecasting 19(2):377-390 (2004) — <a href="https://doi.org/10.1175/1520-0434(2004)019&lt;0377:AAOFRF&gt;2.0.CO;2">https://doi.org/10.1175/1520-0434(2004)019&lt;0377:AAOFRF&gt;2.0.CO;2</a></p>
+</article>
+<article class="rule" id="FRI-022">
+  <div class="rule-head"><span class="rid">FRI-022</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Very low friction on a warm, dry, precipitation-free road</h4>
+  <div class="cond"><span>Applies when</span><code>env.road.friction_scale &lt;= 0.45 and env.temperature_c &gt;= 10 and env.road.wetness == &#x27;dry&#x27; and env.precip.type == &#x27;dry&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>False</code></div>
+  <p class="basis">Scale 0.45 x 0.9 = mu 0.4; lower dry values require undeclared contaminants (oil, mud).</p>
+  <p class="src"><span>Source</span> Hall et al., Guide for Pavement Friction, NCHRP Web-Only Document 108, TRB; Warner et al., SAE 830612 (dry polished asphalt lower bound ~0.45-0.55) (2009) — <a href="https://doi.org/10.17226/23038">https://doi.org/10.17226/23038</a></p>
+</article>
+<article class="rule" id="FRI-023">
+  <div class="rule-head"><span class="rid">FRI-023</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Traction-limited acceleration bound</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and exists(&#x27;entity.max_accel_mps2&#x27;) and exists(&#x27;env.road.friction_scale&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_accel_mps2 &lt;= env.road.friction_scale * 0.9 * 9.81 * 1.35</code></div>
+  <p class="basis">a_max = mu*g*(W_driven/W); AWD fraction 1.0 gives the upper bound; 2WD cars are ~0.5-0.65 of it.</p>
+  <p class="src"><span>Source</span> Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 2 &#x27;Acceleration Performance&#x27; (F_x,max = mu * W_driven) (1992) — <a href="https://doi.org/10.4271/R-114">https://doi.org/10.4271/R-114</a></p>
+</article>
+</section>
+<section class="pack" id="pack-kinematics">
+<h3>L1 · Kinematics <span class="count">24 rules · YAML pack <code>kinematics.yaml</code></span></h3>
+<p class="intro">Motion envelopes per road-user class: how fast a pedestrian, cyclist, car or truck can go, accelerate, brake and change lanes — each bound cited to biomechanics, records or regulation.</p>
+<article class="rule" id="KIN-001">
+  <div class="rule-head"><span class="rid">KIN-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Pedestrian faster than any human ever recorded</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;pedestrian&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= 12.5</code></div>
+  <p class="basis">Bolt peak segment velocity 12.30-12.34 m/s (60-80 m split, 9.58 s WR).</p>
+  <p class="src"><span>Source</span> Krzysztof, M. &amp; Mero, A., A kinematics analysis of three best 100 m performances ever, Journal of Human Kinetics 36:149-160; Graubner, R. &amp; Nixdorf, E., IAAF Berlin 2009 biomechanical report, New Studies in Athletics 26:19-53 (2011) (2013) — <a href="https://doi.org/10.2478/hukin-2013-0015">https://doi.org/10.2478/hukin-2013-0015</a></p>
+</article>
+<article class="rule" id="KIN-002">
+  <div class="rule-head"><span class="rid">KIN-002</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Pedestrian at trained-sprinter speed</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;pedestrian&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= 8.0</code></div>
+  <p class="basis">Recreational maximal sprint speeds cluster 6-8 m/s; elite mean 100 m velocity ~10.4 m/s.</p>
+  <p class="src"><span>Source</span> Weyand, P.G. et al., Faster top running speeds are achieved with greater ground forces not more rapid leg movements, J Appl Physiol 89:1991-1999 (2000); Krzysztof &amp; Mero (2013) (2000) — <a href="https://doi.org/10.1152/jappl.2000.89.5.1991">https://doi.org/10.1152/jappl.2000.89.5.1991</a></p>
+</article>
+<article class="rule" id="KIN-003">
+  <div class="rule-head"><span class="rid">KIN-003</span>
+    <span class="sev info">info</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Pedestrian running rather than walking</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;pedestrian&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= 3.0</code></div>
+  <p class="basis">Comfortable gait 1.27-1.46 m/s; maximum gait 1.75-2.53 m/s.</p>
+  <p class="src"><span>Source</span> Bohannon, R.W., Comfortable and maximum walking speed of adults aged 20-79 years, Age and Ageing 26(1):15-19 (1997) — <a href="https://doi.org/10.1093/ageing/26.1.15">https://doi.org/10.1093/ageing/26.1.15</a></p>
+</article>
+<article class="rule" id="KIN-004">
+  <div class="rule-head"><span class="rid">KIN-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Pedestrian acceleration beyond elite sprint-start peak</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;pedestrian&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_change_rate_mps2 &lt;= 10.0</code></div>
+  <p class="basis">Peak forward acceleration ~9-10 m/s^2 for ~0.3 s in elite sprinters, decaying rapidly.</p>
+  <p class="src"><span>Source</span> di Prampero, P.E. et al., Sprint running: a new energetic approach, J Exp Biol 208:2809-2816 (2005) — <a href="https://doi.org/10.1242/jeb.01700">https://doi.org/10.1242/jeb.01700</a></p>
+</article>
+<article class="rule" id="KIN-005">
+  <div class="rule-head"><span class="rid">KIN-005</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Pedestrian acceleration above normal human capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;pedestrian&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_change_rate_mps2 &lt;= 4.5</code></div>
+  <p class="basis">Sustained/average sprint acceleration ~3-4 m/s^2.</p>
+  <p class="src"><span>Source</span> di Prampero, P.E. et al., J Exp Biol 208:2809-2816 (2005); Weyand et al., J Appl Physiol 89:1991-1999 (2000) (2005) — <a href="https://doi.org/10.1242/jeb.01700">https://doi.org/10.1242/jeb.01700</a></p>
+</article>
+<article class="rule" id="KIN-006">
+  <div class="rule-head"><span class="rid">KIN-006</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Bicycle above absolute human-powered speed record</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;bicycle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= 39.0</code></div>
+  <p class="basis">Absolute flat unpaced record ~40 m/s; upright records far lower.</p>
+  <p class="src"><span>Source</span> IHPVA/WHPSC records: T. Reichert, AeroVelo Eta, 144.17 km/h unpaced 200 m flying start, Battle Mountain NV (2016); List of cycling records (2016) — <a href="https://en.wikipedia.org/wiki/List_of_cycling_records">https://en.wikipedia.org/wiki/List_of_cycling_records</a></p>
+</article>
+<article class="rule" id="KIN-007">
+  <div class="rule-head"><span class="rid">KIN-007</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Bicycle at competitive-racing speed</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;bicycle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= 12.0</code></div>
+  <p class="basis">Conventional bicycle mean ~4.2 m/s; urban means 3.75-6.5 m/s; road cyclists cruise 8-12 m/s.</p>
+  <p class="src"><span>Source</span> Schleinitz, K. et al., The German Naturalistic Cycling Study - comparing cycling speed of riders of different e-bikes and conventional bicycles, Safety Science 92:290-297 (2017) — <a href="https://doi.org/10.1016/j.ssci.2015.07.027">https://doi.org/10.1016/j.ssci.2015.07.027</a></p>
+</article>
+<article class="rule" id="KIN-008">
+  <div class="rule-head"><span class="rid">KIN-008</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Bicycle acceleration above measured human cycling capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;bicycle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_change_rate_mps2 &lt;= 2.0</code></div>
+  <p class="basis">Mean accel 0.36 m/s^2, max 1.23 m/s^2 (drone observations); design values 0.5-1.0 m/s^2.</p>
+  <p class="src"><span>Source</span> Kutsch, A., Kessler, L. &amp; Bogenberger, K., Analyzing Bicycle Riding Characteristics Based on Naturalistic Urban Drone Observations, Transportation Research Record (2025); Parkin, J. &amp; Rotheram, J., Design speeds and acceleration characteristics of bicycle traffic, Transport Policy 17(5):335-341 (2010) (2025) — <a href="https://doi.org/10.1177/03611981251341354">https://doi.org/10.1177/03611981251341354</a></p>
+</article>
+<article class="rule" id="KIN-009">
+  <div class="rule-head"><span class="rid">KIN-009</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Animal faster than its plausible envelope</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;animal&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= 20.0</code></div>
+  <p class="basis">Greyhound peak ~72 km/h (~20 m/s); white-tailed deer ~48-64 km/h.</p>
+  <p class="src"><span>Source</span> Usherwood, J.R. &amp; Wilson, A.M., Biomechanics: No force limit on greyhound sprint speed, Nature 438:753-754 (2005) — <a href="https://doi.org/10.1038/438753a">https://doi.org/10.1038/438753a</a></p>
+</article>
+<article class="rule" id="KIN-010">
+  <div class="rule-head"><span class="rid">KIN-010</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Animal faster than the fastest land animal</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;animal&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= 33.0</code></div>
+  <p class="basis">Cheetah timed at 29.3 m/s; absolute terrestrial ceiling ~33 m/s.</p>
+  <p class="src"><span>Source</span> Sharp, N.C.C., Timed running speed of a cheetah (Acinonyx jubatus), Journal of Zoology 241:493-494 (1997) — <a href="https://doi.org/10.1111/j.1469-7998.1997.tb04840.x">https://doi.org/10.1111/j.1469-7998.1997.tb04840.x</a></p>
+</article>
+<article class="rule" id="KIN-011">
+  <div class="rule-head"><span class="rid">KIN-011</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Vehicle maxSpeed above the production-car record</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and entity.category not in [&#x27;train&#x27;, &#x27;tram&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_mps &lt;= 140.0</code></div>
+  <p class="basis">Absolute production-car ceiling ~136 m/s; threshold 140 m/s sits just above.</p>
+  <p class="src"><span>Source</span> List of production car speed records (Bugatti Chiron Super Sport 300+, 490.484 km/h, Ehra-Lessien, 2 Aug 2019, TUV-verified) (2019) — <a href="https://en.wikipedia.org/wiki/Production_car_speed_record">https://en.wikipedia.org/wiki/Production_car_speed_record</a></p>
+</article>
+<article class="rule" id="KIN-012">
+  <div class="rule-head"><span class="rid">KIN-012</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Passenger car maxSpeed in hypercar-record territory</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;car&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_mps &lt;= 100.0</code></div>
+  <p class="basis">See docs/catalog_report.md for the 100 m/s threshold decision.</p>
+  <p class="src"><span>Source</span> List of production car speed records; typical 250 km/h German gentlemen&#x27;s-agreement limiter (2019) — <a href="https://en.wikipedia.org/wiki/Production_car_speed_record">https://en.wikipedia.org/wiki/Production_car_speed_record</a></p>
+</article>
+<article class="rule" id="KIN-013">
+  <div class="rule-head"><span class="rid">KIN-013</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Heavy vehicle maxSpeed above governed class capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_mps &lt;= 40.0</code></div>
+  <p class="basis">Regulatory limiter 25-28 m/s; 40 m/s allows ungoverned capability margin.</p>
+  <p class="src"><span>Source</span> Council Directive 92/6/EEC (as amended by 2002/85/EC) on speed limitation devices: 90 km/h trucks &gt;3.5t, 100 km/h buses (2002) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31992L0006">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31992L0006</a></p>
+</article>
+<article class="rule" id="KIN-014">
+  <div class="rule-head"><span class="rid">KIN-014</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Vehicle braking beyond the street-tire physical ceiling</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &lt;= 11.8</code></div>
+  <p class="basis">mu_peak,max ~1.2 x 9.81 = 11.77 m/s^2; instrumented production-car tests cluster 0.8-1.05 g.</p>
+  <p class="src"><span>Source</span> Pacejka, H.B., Tire and Vehicle Dynamics, 3rd ed. (peak mu ~1.1-1.2 street tires); Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 3 (2012) — <a href="https://doi.org/10.1016/C2010-0-68548-8">https://doi.org/10.1016/C2010-0-68548-8</a></p>
+</article>
+<article class="rule" id="KIN-015">
+  <div class="rule-head"><span class="rid">KIN-015</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Heavy vehicle braking above realistic capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &lt;= 8.0</code></div>
+  <p class="basis">R13 prescribes MFDD ~5.0 m/s^2 minimum; real laden peaks 5-7 m/s^2.</p>
+  <p class="src"><span>Source</span> UNECE Regulation No. 13 (heavy vehicle braking), Annex 4 service-brake performance; laden heavy-vehicle test literature (2016) — <a href="https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20">https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20</a></p>
+</article>
+<article class="rule" id="KIN-016">
+  <div class="rule-head"><span class="rid">KIN-016</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Heavy vehicle braking below regulatory minimum</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;truck&#x27;, &#x27;bus&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &gt;= 5.0</code></div>
+  <p class="basis">Type-0 prescribed MFDD ~5.0 m/s^2 for buses/goods vehicles.</p>
+  <p class="src"><span>Source</span> UNECE Regulation No. 13, Annex 4: service braking minimum performance, M2/M3/N categories (2016) — <a href="https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20">https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-1-20</a></p>
+</article>
+<article class="rule" id="KIN-017">
+  <div class="rule-head"><span class="rid">KIN-017</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Bicycle braking beyond the pitch-over limit</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;bicycle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_decel_mps2 &lt;= 7.0</code></div>
+  <p class="basis">Pitch-over limit ~0.5-0.6 g; AASHTO bicycle design deceleration ~1.5 m/s^2 (comfort).</p>
+  <p class="src"><span>Source</span> Wilson, D.G. &amp; Schmidt, T., Bicycling Science, 4th ed., MIT Press (pitch-over braking limit) (2020) — <a href="https://mitpress.mit.edu/9780262538404/bicycling-science/">https://mitpress.mit.edu/9780262538404/bicycling-science/</a></p>
+</article>
+<article class="rule" id="KIN-018">
+  <div class="rule-head"><span class="rid">KIN-018</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Vehicle acceleration beyond record production capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and entity.category not in [&#x27;train&#x27;, &#x27;tram&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_accel_mps2 &lt;= 13.0</code></div>
+  <p class="basis">Traction ceiling mu ~1.0-1.1 x g; record launches peak ~1.2-1.3 g with sticky tires.</p>
+  <p class="src"><span>Source</span> Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 2 (traction limit); production-EV acceleration records (Rimac Nevera 0-60 mph 1.74 s) (1992) — <a href="https://doi.org/10.4271/R-114">https://doi.org/10.4271/R-114</a></p>
+</article>
+<article class="rule" id="KIN-019">
+  <div class="rule-head"><span class="rid">KIN-019</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Passenger car acceleration in supercar territory</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;car&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_accel_mps2 &lt;= 9.0</code></div>
+  <p class="basis">Field data: max acceleration petrol cars 2.87 m/s^2, diesel 2.23 m/s^2.</p>
+  <p class="src"><span>Source</span> Bokare, P.S. &amp; Maurya, A.K., Acceleration-Deceleration Behaviour of Various Vehicle Types, Transportation Research Procedia 25:4733-4749 (2017) — <a href="https://doi.org/10.1016/j.trpro.2017.05.486">https://doi.org/10.1016/j.trpro.2017.05.486</a></p>
+</article>
+<article class="rule" id="KIN-020">
+  <div class="rule-head"><span class="rid">KIN-020</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Heavy vehicle acceleration above capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_accel_mps2 &lt;= 3.0</code></div>
+  <p class="basis">Truck field maxima ~1 m/s^2; 3 m/s^2 is a generous unladen bound.</p>
+  <p class="src"><span>Source</span> Bokare, P.S. &amp; Maurya, A.K., Transportation Research Procedia 25:4733-4749 (2017) — <a href="https://doi.org/10.1016/j.trpro.2017.05.486">https://doi.org/10.1016/j.trpro.2017.05.486</a></p>
+</article>
+<article class="rule" id="KIN-021">
+  <div class="rule-head"><span class="rid">KIN-021</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Lane change faster than any observed</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.min_lane_change_time_s &gt;= 1.0</code></div>
+  <p class="basis">Mean lane-change duration 4.6-5.8 s, observed range ~1 to &gt;13 s; for a 3.5 m lane a 1 s sinusoidal change implies ~7 m/s^2 peak lateral acceleration (~0.7 g).</p>
+  <p class="src"><span>Source</span> Toledo, T. &amp; Zohar, D., Modeling Duration of Lane Changes, Transportation Research Record 1999:71-78 (2007) — <a href="https://doi.org/10.3141/1999-08">https://doi.org/10.3141/1999-08</a></p>
+</article>
+<article class="rule" id="KIN-022">
+  <div class="rule-head"><span class="rid">KIN-022</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Uncomfortably fast lane change</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.min_lane_change_time_s &gt;= 2.0</code></div>
+  <p class="basis">Naturalistic durations seldom below ~1.5-2 s; comfort lateral accel 0.1-0.3 g.</p>
+  <p class="src"><span>Source</span> Toledo, T. &amp; Zohar, D., TRR 1999:71-78 (2007); Gillespie, Fundamentals of Vehicle Dynamics, SAE R-114 (comfort lateral acceleration) (2007) — <a href="https://doi.org/10.3141/1999-08">https://doi.org/10.3141/1999-08</a></p>
+</article>
+<article class="rule" id="KIN-023">
+  <div class="rule-head"><span class="rid">KIN-023</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Commanded speed exceeds the entity&#x27;s declared capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and exists(&#x27;entity.max_speed_mps&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_target_speed_mps &lt;= entity.max_speed_mps * 1.01</code></div>
+  <p class="basis">Definitional: Performance.maxSpeed bounds achievable speed.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Performance (maxSpeed: maximum speed of the vehicle) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="KIN-024">
+  <div class="rule-head"><span class="rid">KIN-024</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Commanded speed-change rate beyond record vehicle capability</h4>
+  <div class="cond"><span>Applies when</span><code>entity.kind == &#x27;vehicle&#x27; and entity.category not in [&#x27;train&#x27;, &#x27;tram&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.max_speed_change_rate_mps2 &lt;= 13.0</code></div>
+  <p class="basis">Street-tire traction bounds |dv/dt| to ~1.2-1.3 g in either direction.</p>
+  <p class="src"><span>Source</span> Gillespie, Fundamentals of Vehicle Dynamics, SAE R-114 (traction limits); Pacejka, Tire and Vehicle Dynamics, 3rd ed. (1992) — <a href="https://doi.org/10.4271/R-114">https://doi.org/10.4271/R-114</a></p>
+</article>
+</section>
+<section class="pack" id="pack-solar">
+<h3>L1 · Solar <span class="count">8 rules · YAML pack <code>solar.yaml</code></span></h3>
+<p class="intro">Internal consistency of the declared sun: elevation versus illuminance versus time of day, without needing a map (map-anchored sun geometry lives in L2).</p>
+<article class="rule" id="SOL-001">
+  <div class="rule-head"><span class="rid">SOL-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Sun elevation outside physical altitude range</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.sun.elevation_rad&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>-1.5708 &lt;= env.sun.elevation_rad &lt;= 1.5708</code></div>
+  <p class="basis">Definitional bound on altitude angles.</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Willmann-Bell, Ch. 13 (altitude defined on [-90, +90] deg); ASAM OpenSCENARIO 1.0 Model Documentation, class Sun (1998) — <a href="https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html">https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html</a></p>
+</article>
+<article class="rule" id="SOL-002">
+  <div class="rule-head"><span class="rid">SOL-002</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Sun azimuth outside [0, 2*pi)</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.sun.azimuth_rad&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>0 &lt;= env.sun.azimuth_rad &lt; 6.2832</code></div>
+  <p class="basis">Normative schema range; full-circle bearing.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.0 Model Documentation, class Sun (azimuth range [0..2PI]; 0=north, PI/2=east, PI=south) (2020) — <a href="https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html">https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Sun.html</a></p>
+</article>
+<article class="rule" id="SOL-003">
+  <div class="rule-head"><span class="rid">SOL-003</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Sun illuminance above the luminous solar constant</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.sun.illuminance_lux&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>0 &lt;= env.sun.illuminance_lux &lt;= 133800</code></div>
+  <p class="basis">Luminous solar constant 133.8 klux (top of atmosphere); ground direct-normal peaks ~103 klux.</p>
+  <p class="src"><span>Source</span> Darula, S., Kittler, R., Gueymard, C.A., Reference luminous solar constant and solar luminance for illuminance calculations, Solar Energy 79(5):559-565 (2005) — <a href="https://doi.org/10.1016/j.solener.2005.01.004">https://doi.org/10.1016/j.solener.2005.01.004</a></p>
+</article>
+<article class="rule" id="SOL-004">
+  <div class="rule-head"><span class="rid">SOL-004</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Sun illuminance above the ground-level plausibility ceiling</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.sun.illuminance_lux&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_lux &lt;= 120000</code></div>
+  <p class="basis">IES clear-sky model: E_dn ~103 klux at zenith sun; global horizontal ~120 klux.</p>
+  <p class="src"><span>Source</span> IES Calculation Procedures Committee, Recommended practice for the calculation of daylight availability, Journal of the IES 13(4):381-392 (1984) — <a href="https://doi.org/10.1080/00994480.1984.10748791">https://doi.org/10.1080/00994480.1984.10748791</a></p>
+</article>
+<article class="rule" id="SOL-005">
+  <div class="rule-head"><span class="rid">SOL-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Sun below the horizon but illuminance declared high</h4>
+  <div class="cond"><span>Applies when</span><code>env.sun.elevation_rad &lt; -0.0145</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_lux &lt;= 100</code></div>
+  <p class="basis">-50&#x27; = 34&#x27; refraction + 16&#x27; solar semidiameter; 100 lux grace band for engines folding twilight ambient into the sun field.</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Ch. 15 (sunrise/sunset standard altitude -50&#x27;); U.S. Naval Observatory, Rise, Set, and Twilight Definitions; Bennett, G.G., The calculation of astronomical refraction in marine navigation, Journal of Navigation 35(2):255-259 (1982) (1998) — <a href="https://aa.usno.navy.mil/faq/RST_defs">https://aa.usno.navy.mil/faq/RST_defs</a></p>
+</article>
+<article class="rule" id="SOL-006">
+  <div class="rule-head"><span class="rid">SOL-006</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Sun illuminance far above the clear-sky envelope for its elevation</h4>
+  <div class="cond"><span>Applies when</span><code>env.sun.elevation_rad &gt; 0.0145 and exists(&#x27;env.sun.illuminance_lux&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_lux &lt;= 1.15 * (127500 * exp(-0.21 / sin(env.sun.elevation_rad)) + 800 + 15500 * sqrt(sin(env.sun.elevation_rad)))</code></div>
+  <p class="basis">Model values: h=10deg -&gt; E_dn ~38 klux; h=30deg -&gt; ~84 klux; h=60deg -&gt; ~100 klux.</p>
+  <p class="src"><span>Source</span> IES Calculation Procedures Committee, Recommended practice for the calculation of daylight availability, Journal of the IES 13(4):381-392 (E_dn = 127.5 klx * exp(-0.21/sin h); clear-sky diffuse A=800, B=15500, C=0.5) (1984) — <a href="https://doi.org/10.1080/00994480.1984.10748791">https://doi.org/10.1080/00994480.1984.10748791</a></p>
+</article>
+<article class="rule" id="SOL-007">
+  <div class="rule-head"><span class="rid">SOL-007</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>High sun in the middle of the night</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.time.hour&#x27;) and (env.time.hour &lt;= 3.0 or env.time.hour &gt;= 22.0)</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.elevation_rad &lt;= 0.087</code></div>
+  <p class="basis">At solar midnight h = |phi| + 23.44 - 90 deg, positive only for |phi| &gt; 66.56 deg. Warning (not error) because OSC 1.x leaves the dateTime timezone undefined (docs/decisions.md D5).</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Ch. 13 (lower-transit elevation h = phi + delta - 90 deg); U.S. Naval Observatory, Rise, Set, and Twilight Definitions (midnight sun) (1998) — <a href="https://aa.usno.navy.mil/faq/RST_defs">https://aa.usno.navy.mil/faq/RST_defs</a></p>
+</article>
+<article class="rule" id="SOL-008">
+  <div class="rule-head"><span class="rid">SOL-008</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per scenario</span></div>
+  <h4>Bright daytime sun declared at night hours</h4>
+  <div class="cond"><span>Applies when</span><code>exists(&#x27;env.time.hour&#x27;) and (env.time.hour &lt;= 3.0 or env.time.hour &gt;= 22.0) and not exists(&#x27;env.sun.elevation_rad&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_lux &lt;= 1000</code></div>
+  <p class="basis">Max natural night illuminance ~0.3 lux (perigee full moon); civil-twilight end ~3.4 lux.</p>
+  <p class="src"><span>Source</span> Brown, D.R.E., Natural Illumination Charts, US Navy BuShips Report 374-1 (1952); Kyba, C.C.M., Mohar, A., Posch, T., How bright is moonlight?, Astronomy &amp; Geophysics 58(1):1.31-1.32 (2017) — <a href="https://doi.org/10.1093/astrogeo/atx014">https://doi.org/10.1093/astrogeo/atx014</a></p>
+</article>
+</section>
+<section class="pack" id="pack-entities">
+<h3>L1 · Entities <span class="count">13 rules · YAML pack <code>entities.yaml</code></span></h3>
+<p class="intro">Physical plausibility of the actors themselves: bounding-box dimensions, masses and performance limits per category — no 5 m-long pedestrians, no 1 kg trucks.</p>
+<article class="rule" id="ENT-001">
+  <div class="rule-head"><span class="rid">ENT-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Road vehicle wider than the legal maximum</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;car&#x27;, &#x27;van&#x27;, &#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.width_m &lt;= 2.6</code></div>
+  <p class="basis">Statutory width cap; 2.60 m used to avoid false positives on refrigerated bodies.</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC, Annex I §1.2 (maximum authorized width 2.55 m; 2.60 m for conditioned vehicles) (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+<article class="rule" id="ENT-002">
+  <div class="rule-head"><span class="rid">ENT-002</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Passenger car wider than production norms</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;car&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.width_m &lt;= 2.1</code></div>
+  <p class="basis">Production car width envelope ~1.6-2.1 m.</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC (context); production passenger-car dimension surveys (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+<article class="rule" id="ENT-003">
+  <div class="rule-head"><span class="rid">ENT-003</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Passenger car longer than production norms</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;car&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.length_m &lt;= 6.0</code></div>
+  <p class="basis">Passenger-car production length ~2.5-5.7 m.</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC, Annex I §1.1 (motor vehicle length cap 12 m; passenger-car production envelope) (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+<article class="rule" id="ENT-004">
+  <div class="rule-head"><span class="rid">ENT-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Single road vehicle longer than any legal combination</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;car&#x27;, &#x27;van&#x27;, &#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;, &#x27;motorbike&#x27;, &#x27;bicycle&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.length_m &lt;= 18.75</code></div>
+  <p class="basis">Statutory length maxima; 18.75 m is the largest single-unit-modelable combination.</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC, Annex I §1.1 (12.00 m rigid; 16.50 m articulated; 18.75 m road train; Dir 2002/7/EC bus lengths) (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+<article class="rule" id="ENT-005">
+  <div class="rule-head"><span class="rid">ENT-005</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Rigid truck or bus longer than rigid-vehicle legal maximum</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;truck&#x27;, &#x27;bus&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.length_m &lt;= 15.0</code></div>
+  <p class="basis">12 m rigid truck / 15 m rigid bus statutory caps.</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC as amended by Directive 2002/7/EC, Annex I §1.1 (2002) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32002L0007">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32002L0007</a></p>
+</article>
+<article class="rule" id="ENT-006">
+  <div class="rule-head"><span class="rid">ENT-006</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Vehicle taller than the tallest legal double-decker</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;car&#x27;, &#x27;van&#x27;, &#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.height_m &lt;= 4.95</code></div>
+  <p class="basis">EU cap 4.0 m; tallest in-service buses ~4.95 m (see docs/catalog_report.md for threshold decision).</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC, Annex I §1.4 (height 4.00 m); UK unregulated-height double-deckers ~4.95 m operational maximum (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+<article class="rule" id="ENT-007">
+  <div class="rule-head"><span class="rid">ENT-007</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Heavy vehicle above EU height limit</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.height_m &lt;= 4.0</code></div>
+  <p class="basis">Statutory height cap 4.0 m (EU).</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC, Annex I §1.4: maximum authorized height 4.00 m (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+<article class="rule" id="ENT-008">
+  <div class="rule-head"><span class="rid">ENT-008</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Passenger car taller than production norms</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;car&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.height_m &lt;= 2.2</code></div>
+  <p class="basis">Car/SUV heights ~1.4-2.0 m; vans 2.0-2.6 m.</p>
+  <p class="src"><span>Source</span> Production passenger-car dimension envelopes (M1 category); Council Directive 96/53/EC context (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+<article class="rule" id="ENT-009">
+  <div class="rule-head"><span class="rid">ENT-009</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Pedestrian taller than the tallest human ever recorded</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;pedestrian&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.height_m &lt;= 2.75</code></div>
+  <p class="basis">Verified record 2.72 m.</p>
+  <p class="src"><span>Source</span> Guinness World Records: tallest man ever, Robert Wadlow, 2.72 m (verified 1940) (1940) — <a href="https://www.guinnessworldrecords.com/world-records/tallest-man-ever">https://www.guinnessworldrecords.com/world-records/tallest-man-ever</a></p>
+</article>
+<article class="rule" id="ENT-010">
+  <div class="rule-head"><span class="rid">ENT-010</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Pedestrian outside normal anthropometric envelope</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;pedestrian&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.height_m &lt;= 2.2 and entity.width_m &lt;= 1.2 and entity.length_m &lt;= 1.2</code></div>
+  <p class="basis">P99 adult stature &lt;2.0 m; 1.2 m width/depth margin covers arm spread and props.</p>
+  <p class="src"><span>Source</span> Anthropometric reference data (e.g., NHANES / ISO 7250 human body dimensions); adult stature P99 ~1.95-2.0 m (2021) — <a href="https://www.cdc.gov/nchs/data/series/sr_03/sr03-046-508.pdf">https://www.cdc.gov/nchs/data/series/sr_03/sr03-046-508.pdf</a></p>
+</article>
+<article class="rule" id="ENT-011">
+  <div class="rule-head"><span class="rid">ENT-011</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Bicycle outside production dimension envelope</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;bicycle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>entity.length_m &lt;= 2.2 and entity.width_m &lt;= 0.9</code></div>
+  <p class="basis">Standard bicycle length ~1.7-2.0 m, handlebar width 0.55-0.8 m.</p>
+  <p class="src"><span>Source</span> EN ISO 4210-2 (city/trekking bicycle geometry); typical bicycle overall dimensions (2015) — <a href="https://www.iso.org/standard/79553.html">https://www.iso.org/standard/79553.html</a></p>
+</article>
+<article class="rule" id="ENT-012">
+  <div class="rule-head"><span class="rid">ENT-012</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Passenger car mass outside production range</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category == &#x27;car&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>600 &lt;= entity.mass_kg &lt;= 3500</code></div>
+  <p class="basis">M1 &lt;= 3.5 t; lightest production cars ~600-700 kg.</p>
+  <p class="src"><span>Source</span> EU vehicle category M1 definition (Regulation (EU) 2018/858, GVW &lt;= 3.5 t); EU type-approval kerb-mass data (2018) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32018R0858">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32018R0858</a></p>
+</article>
+<article class="rule" id="ENT-013">
+  <div class="rule-head"><span class="rid">ENT-013</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L1 · per entity</span></div>
+  <h4>Heavy vehicle mass above legal gross-weight ceiling</h4>
+  <div class="cond"><span>Applies when</span><code>entity.category in [&#x27;truck&#x27;, &#x27;bus&#x27;, &#x27;semitrailer&#x27;, &#x27;trailer&#x27;]</code></div>
+  <div class="cond"><span>Requires</span><code>entity.mass_kg &lt;= 44000</code></div>
+  <p class="basis">Statutory GVW ceilings 40/44 t.</p>
+  <p class="src"><span>Source</span> Council Directive 96/53/EC, Annex I §2 (40 t road train / articulated; 44 t combined transport) (1996) — <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:31996L0053</a></p>
+</article>
+</section>
+<section class="pack" id="pack-version_gating">
+<h3>L0 · Version gating <span class="count">10 rules · YAML pack <code>version_gating.yaml</code></span></h3>
+<p class="intro">Attributes used before the OpenSCENARIO revision that introduced them (e.g. precipitationIntensity needs ≥ 1.1) — silent portability bugs between simulators.</p>
+<article class="rule" id="VER-001">
+  <div class="rule-head"><span class="rid">VER-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>precipitationIntensity used in an OSC 1.0 document</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor == 0</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;env.precip.intensity_mmh&#x27;)</code></div>
+  <p class="basis">Attribute introduced in 1.1.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO Model Documentation, class Precipitation (precipitationIntensity since 1.1) (2021) — <a href="https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Precipitation.html">https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Precipitation.html</a></p>
+</article>
+<article class="rule" id="VER-002">
+  <div class="rule-head"><span class="rid">VER-002</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Wind element used in an OSC 1.0 document</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor == 0</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;env.wind.speed_mps&#x27;) and not exists(&#x27;env.wind.direction_rad&#x27;)</code></div>
+  <p class="basis">Element introduced in 1.1.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO Model Documentation, class Weather (Wind element since 1.1) (2021) — <a href="https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Weather.html">https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Weather.html</a></p>
+</article>
+<article class="rule" id="VER-003">
+  <div class="rule-head"><span class="rid">VER-003</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Weather temperature/pressure used in an OSC 1.0 document</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor == 0</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;env.temperature_k&#x27;) and not exists(&#x27;env.pressure_pa&#x27;)</code></div>
+  <p class="basis">Attributes introduced in 1.1.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO Model Documentation, class Weather (temperature/atmosphericPressure since 1.1) (2021) — <a href="https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Weather.html">https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Weather.html</a></p>
+</article>
+<article class="rule" id="VER-004">
+  <div class="rule-head"><span class="rid">VER-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>fractionalCloudCover used before OSC 1.2</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor &lt; 2</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;env.cloud.oktas&#x27;)</code></div>
+  <p class="basis">Enum introduced in 1.2, replacing cloudState.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2.0 Model Documentation, enumeration FractionalCloudCover (since 1.2) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="VER-005">
+  <div class="rule-head"><span class="rid">VER-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>RoadCondition wetness used before OSC 1.2</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor &lt; 2</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;env.road.wetness&#x27;)</code></div>
+  <p class="basis">Enum introduced in 1.2.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2.0 Model Documentation, enumeration Wetness (since 1.2) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="VER-006">
+  <div class="rule-head"><span class="rid">VER-006</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Sun illuminance used before OSC 1.2</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor &lt; 2 and exists(&#x27;env.sun.illuminance_attr&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_attr != &#x27;illuminance&#x27;</code></div>
+  <p class="basis">Attribute renamed in 1.2, semantics unchanged.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2.0 Model Documentation, class Sun (intensity renamed illuminance in 1.2) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="VER-007">
+  <div class="rule-head"><span class="rid">VER-007</span>
+    <span class="sev info">info</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Deprecated unitless precipitation intensity in OSC &gt;= 1.1</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor &gt;= 1</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;env.precip.intensity01&#x27;)</code></div>
+  <p class="basis">Deprecated in 1.1.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO Model Documentation, class Precipitation (intensity deprecated since 1.1) (2021) — <a href="https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Precipitation.html">https://releases.asam.net/OpenSCENARIO/1.1.0/modelDocumentation/content/Precipitation.html</a></p>
+</article>
+<article class="rule" id="VER-008">
+  <div class="rule-head"><span class="rid">VER-008</span>
+    <span class="sev info">info</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Deprecated cloudState in OSC &gt;= 1.2</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor &gt;= 2</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;env.cloud.state&#x27;)</code></div>
+  <p class="basis">Deprecated in 1.2.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2.0 Model Documentation, enumeration CloudState (deprecated 1.2) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="VER-009">
+  <div class="rule-head"><span class="rid">VER-009</span>
+    <span class="sev info">info</span>
+    <span class="scope">L0 · per scenario</span></div>
+  <h4>Deprecated Sun intensity in OSC &gt;= 1.2</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor &gt;= 2 and exists(&#x27;env.sun.illuminance_attr&#x27;)</code></div>
+  <div class="cond"><span>Requires</span><code>env.sun.illuminance_attr != &#x27;intensity&#x27;</code></div>
+  <p class="basis">Deprecated in 1.2.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.2.0 Model Documentation, class Sun (intensity deprecated 1.2) (2022) — <a href="https://www.asam.net/standards/detail/openscenario-xml/">https://www.asam.net/standards/detail/openscenario-xml/</a></p>
+</article>
+<article class="rule" id="VER-010">
+  <div class="rule-head"><span class="rid">VER-010</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · per entity</span></div>
+  <h4>Vehicle mass used in an OSC 1.0 document</h4>
+  <div class="cond"><span>Applies when</span><code>osc.rev_major == 1 and osc.rev_minor == 0 and entity.kind == &#x27;vehicle&#x27;</code></div>
+  <div class="cond"><span>Requires</span><code>not exists(&#x27;entity.mass_kg&#x27;)</code></div>
+  <p class="basis">Attribute introduced in 1.1.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO Model Documentation, class Vehicle (mass since 1.1; verified absent in 1.0.0) (2021) — <a href="https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Vehicle.html">https://releases.asam.net/OpenSCENARIO/1.0.0/Model-Documentation/content/Vehicle.html</a></p>
+</article>
+</section>
+<section class="pack" id="plugin-l0">
+<h3>L0 · Structural checks (plugin) <span class="count">8 rules · built-in analysis</span></h3>
+<p class="intro">Checks that need the document structure rather than attribute values: well-formedness, header completeness, dangling references, unresolved parameters. Implemented over the parser&#x27;s issue stream — the parser never throws; everything it cannot interpret becomes a finding here.</p>
+<article class="rule" id="SCH-001">
+  <div class="rule-head"><span class="rid">SCH-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>File is not a well-formed OpenSCENARIO document</h4>
+  <p class="basis">The XML failed to parse as an OpenSCENARIO document (including wrong-case root elements, which are flagged but still parsed).</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x specification (XML schema)</p>
+</article>
+<article class="rule" id="SCH-002">
+  <div class="rule-head"><span class="rid">SCH-002</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>FileHeader missing or incomplete</h4>
+  <p class="basis">FileHeader is absent or lacks the mandatory revision attributes.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class FileHeader</p>
+</article>
+<article class="rule" id="SCH-003">
+  <div class="rule-head"><span class="rid">SCH-003</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>Unsupported OpenSCENARIO major revision</h4>
+  <p class="basis">revMajor is not a supported major revision (1.x).</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class FileHeader (revMajor)</p>
+</article>
+<article class="rule" id="SCH-004">
+  <div class="rule-head"><span class="rid">SCH-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>Dangling entityRef</h4>
+  <p class="basis">An entityRef names an entity that is not declared under Entities.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, EntityRef semantics</p>
+</article>
+<article class="rule" id="SCH-005">
+  <div class="rule-head"><span class="rid">SCH-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>Unresolved parameter or expression</h4>
+  <p class="basis">A $parameter or ${expression} could not be resolved to a value.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, ParameterDeclarations</p>
+</article>
+<article class="rule" id="SCH-006">
+  <div class="rule-head"><span class="rid">SCH-006</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>Value not parseable as its declared type</h4>
+  <p class="basis">An attribute&#x27;s text could not be parsed as its declared type (e.g. a non-numeric speed).</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x specification (XML schema types)</p>
+</article>
+<article class="rule" id="SCH-007">
+  <div class="rule-head"><span class="rid">SCH-007</span>
+    <span class="sev info">info</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>CatalogReference could not be resolved</h4>
+  <p class="basis">A CatalogReference points to a catalog or entry that could not be found next to the scenario.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, Catalogs</p>
+</article>
+<article class="rule" id="SCH-008">
+  <div class="rule-head"><span class="rid">SCH-008</span>
+    <span class="sev err">error</span>
+    <span class="scope">L0 · built-in analysis</span></div>
+  <h4>TimeOfDay dateTime not ISO 8601</h4>
+  <p class="basis">A TimeOfDay dateTime is not valid ISO 8601.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class TimeOfDay (xsd:dateTime)</p>
+</article>
+</section>
+<section class="pack" id="plugin-l1">
+<h3>L1 · Cross-state checks (plugin) <span class="count">1 rules · built-in analysis</span></h3>
+<p class="intro">Consistency across multiple declared environment states of one scenario — relationships no single-state predicate can express.</p>
+<article class="rule" id="FRI-024">
+  <div class="rule-head"><span class="rid">FRI-024</span>
+    <span class="sev err">error</span>
+    <span class="scope">L1 · built-in analysis</span></div>
+  <h4>Friction scale not monotone in road wetness across environment states</h4>
+  <p class="basis">Compares frictionScaleFactor across all declared environment states: a wetter state must never declare higher friction than a drier one.</p>
+  <p class="src"><span>Source</span> Robert Bosch GmbH, Automotive Handbook, 4th ed., p. 330 (friction monotone in water film depth at all speeds); Gallaway et al., FHWA-RD-79-31, FHWA (1979)</p>
+</article>
+</section>
+<section class="pack" id="plugin-map">
+<h3>L2 · Map cross-checks <span class="count">8 rules · built-in analysis</span></h3>
+<p class="intro">The scenario against its OpenDRIVE map. physcheck ships its own dependency-free map frontend: road reference lines (line / arc / spiral / polynomial geometry, sampled at ~0.5 m), lane sections with types and widths, road/junction connectivity, speed records and the geodetic anchor. Positions are resolved to world coordinates exactly as a simulator would.</p>
+<article class="rule" id="MAP-000">
+  <div class="rule-head"><span class="rid">MAP-000</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>OpenDRIVE map could not be fully parsed</h4>
+  <p class="basis">The OpenDRIVE file parsed with problems; map checks run on the parseable part only.</p>
+  <p class="src"><span>Source</span> ASAM OpenDRIVE 1.6 specification (XML schema)</p>
+</article>
+<article class="rule" id="MAP-001">
+  <div class="rule-head"><span class="rid">MAP-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Referenced road does not exist in the map</h4>
+  <p class="basis">A RoadPosition/LanePosition roadId does not exist in the map.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, RoadPosition/LanePosition (roadId refers to a road in the OpenDRIVE road network)</p>
+</article>
+<article class="rule" id="MAP-002">
+  <div class="rule-head"><span class="rid">MAP-002</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Referenced lane does not exist on the road at the given s</h4>
+  <p class="basis">The laneId does not exist in the road&#x27;s lane section at the given s-coordinate.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, LanePosition (laneId refers to an OpenDRIVE lane id valid at coordinate s)</p>
+</article>
+<article class="rule" id="MAP-003">
+  <div class="rule-head"><span class="rid">MAP-003</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>s-coordinate beyond the end of the road</h4>
+  <p class="basis">The s-coordinate lies beyond the road&#x27;s length (0.5 m tolerance).</p>
+  <p class="src"><span>Source</span> ASAM OpenDRIVE 1.6 specification §7 (road reference line, s in [0, length])</p>
+</article>
+<article class="rule" id="MAP-004">
+  <div class="rule-head"><span class="rid">MAP-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Vehicle spawned off any drivable lane</h4>
+  <p class="basis">The entity&#x27;s resolved world position lies on no vehicle-passable lane — including detection of coordinates mirrored into CARLA&#x27;s left-handed frame.</p>
+  <p class="src"><span>Source</span> ASAM OpenDRIVE 1.6 specification §9.5.3 (lane types: &#x27;driving&#x27; and ramp/bus/parking types are vehicle-passable; &#x27;sidewalk&#x27; etc. are not)</p>
+</article>
+<article class="rule" id="MAP-005">
+  <div class="rule-head"><span class="rid">MAP-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Initial bounding boxes interpenetrate</h4>
+  <p class="basis">Oriented bounding boxes of two entities overlap at t=0 (separating-axis test); pairs linked by Relative positions are exempt (attachment idiom).</p>
+  <p class="src"><span>Source</span> Rigid bodies cannot overlap; ASAM OpenSCENARIO 1.x Model Documentation, class BoundingBox (spatial extent of an entity)</p>
+</article>
+<article class="rule" id="MAP-006">
+  <div class="rule-head"><span class="rid">MAP-006</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Route waypoints lie on roads with no connecting path</h4>
+  <p class="basis">Consecutive route waypoints resolve to roads with no path between them in the road/junction connectivity graph.</p>
+  <p class="src"><span>Source</span> ASAM OpenDRIVE 1.6 specification §8 &amp; §10 (road links and junction connections define network reachability)</p>
+</article>
+<article class="rule" id="MAP-007">
+  <div class="rule-head"><span class="rid">MAP-007</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Commanded speed exceeds the road speed limit</h4>
+  <p class="basis">The entity&#x27;s top commanded speed exceeds the road&#x27;s legal speed record by more than 10 %.</p>
+  <p class="src"><span>Source</span> ASAM OpenDRIVE 1.6 specification §7.3 (road type speed record: legal speed limit of the road segment)</p>
+</article>
+</section>
+<section class="pack" id="plugin-geo">
+<h3>L2 · Solar geometry <span class="count">6 rules · built-in analysis</span></h3>
+<p class="intro">The declared sun against a built-in NOAA/Meeus solar ephemeris (accurate to ~0.01°, validated against the NOAA calculator) at the map&#x27;s geodetic anchor: is this sun position possible at this latitude at all, and does it match the declared date and time?</p>
+<article class="rule" id="GEO-001">
+  <div class="rule-head"><span class="rid">GEO-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Sun direction impossible at the map&#x27;s latitude on any date</h4>
+  <p class="basis">The (elevation, azimuth) pair implies a solar declination outside ±23.44° at the map&#x27;s latitude — no date can produce it (error beyond 5°).</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Willmann-Bell, Ch. 22/25 (obliquity 23.44 deg; solar coordinates); NOAA ESRL solar position calculator</p>
+</article>
+<article class="rule" id="GEO-002">
+  <div class="rule-head"><span class="rid">GEO-002</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Sun direction implausible at the map&#x27;s latitude</h4>
+  <p class="basis">Same computation as GEO-001, within the 0.7°–5° implausibility band.</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Willmann-Bell, Ch. 22/25 (obliquity 23.44 deg; solar coordinates); NOAA ESRL solar position calculator</p>
+</article>
+<article class="rule" id="GEO-003">
+  <div class="rule-head"><span class="rid">GEO-003</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Sun elevation exceeds the maximum possible at the map&#x27;s latitude</h4>
+  <p class="basis">Elevation alone exceeds the annual maximum for the map&#x27;s latitude (error beyond 5°).</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Willmann-Bell, Ch. 22/25 (obliquity 23.44 deg; solar coordinates); NOAA ESRL solar position calculator</p>
+</article>
+<article class="rule" id="GEO-004">
+  <div class="rule-head"><span class="rid">GEO-004</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Sun elevation close to impossible at the map&#x27;s latitude</h4>
+  <p class="basis">Same as GEO-003, within the 0.7°–5° band.</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Willmann-Bell, Ch. 22/25 (obliquity 23.44 deg; solar coordinates); NOAA ESRL solar position calculator</p>
+</article>
+<article class="rule" id="GEO-005">
+  <div class="rule-head"><span class="rid">GEO-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Declared sun position contradicts the ephemeris for the declared time</h4>
+  <p class="basis">With a declared dateTime, the ephemeris sun and the declared sun differ by more than 5° (naive times are tried as UTC, local standard and DST; the minimum discrepancy is scored).</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Ch. 25 (solar position); NOAA ESRL solar calculator (implementation standard); Saemundsson (1986) refraction</p>
+</article>
+<article class="rule" id="GEO-006">
+  <div class="rule-head"><span class="rid">GEO-006</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L2 · built-in analysis</span></div>
+  <h4>Declared sun position deviates from the ephemeris for the declared time</h4>
+  <p class="basis">Same as GEO-005, within the 0.7°–5° band.</p>
+  <p class="src"><span>Source</span> Meeus, J., Astronomical Algorithms, 2nd ed., Ch. 25 (solar position); NOAA ESRL solar calculator (implementation standard); Saemundsson (1986) refraction</p>
+</article>
+</section>
+<section class="pack" id="plugin-dyn">
+<h3>L3 · Kinematic feasibility <span class="count">7 rules · built-in analysis</span></h3>
+<p class="intro">Motion against tire physics and the map, with the friction ceiling composed from the L1 environment (layers compose: 9 m/s² braking is valid on dry asphalt, impossible on a flooded road). Trajectories are analysed with windowed estimators (≥ 0.4 s) so position quantisation in recorded data cannot fabricate phantom accelerations, and teleport segments split a trajectory rather than contaminating the statistics around them.</p>
+<article class="rule" id="DYN-001">
+  <div class="rule-head"><span class="rid">DYN-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L3 · built-in analysis</span></div>
+  <h4>Commanded speed infeasible for the road curvature at the entity&#x27;s location</h4>
+  <p class="basis">For declared road/lane spawns: commanded speed² × the road&#x27;s curvature at that point exceeds µ·g (µ from the declared surface, generous class ceilings).</p>
+  <p class="src"><span>Source</span> Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 6 (cornering: lateral acceleration v^2/R is bounded by tire-road friction mu*g); AASHTO Green Book Ch. 3 (horizontal curve design speed)</p>
+</article>
+<article class="rule" id="DYN-002">
+  <div class="rule-head"><span class="rid">DYN-002</span>
+    <span class="sev err">error</span>
+    <span class="scope">L3 · built-in analysis</span></div>
+  <h4>Lane change requires lateral acceleration beyond the friction limit</h4>
+  <p class="basis">Peak lateral acceleration of the sinusoidal lane-change profile over the actual lane width (map) at the commanded duration exceeds µ·g.</p>
+  <p class="src"><span>Source</span> Toledo, T. &amp; Zohar, D., Modeling Duration of Lane Changes, TRR 1999:71-78 (2007); Gillespie, Fundamentals of Vehicle Dynamics, SAE R-114 (lateral acceleration bounded by mu*g)</p>
+</article>
+<article class="rule" id="DYN-003">
+  <div class="rule-head"><span class="rid">DYN-003</span>
+    <span class="sev err">error</span>
+    <span class="scope">L3 · built-in analysis</span></div>
+  <h4>Commanded speed-change rate beyond the traction limit of the declared surface</h4>
+  <p class="basis">A SpeedAction&#x27;s rate exceeds what the declared surface&#x27;s friction can transfer through the tires (µ·g with FRI-013&#x27;s tolerance).</p>
+  <p class="src"><span>Source</span> Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114, Ch. 3 (a &lt;= mu*g on level ground regardless of engine/brake power); Wallman &amp; Åström, VTI Meddelande 911A (2001), wet/ice friction levels</p>
+</article>
+<article class="rule" id="DYN-004">
+  <div class="rule-head"><span class="rid">DYN-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L3 · built-in analysis</span></div>
+  <h4>Trajectory time stamps not strictly increasing</h4>
+  <p class="basis">Vertex time stamps of a followed trajectory decrease or repeat — the motion runs backwards in time.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Polyline/Vertex (time defines the motion&#x27;s time domain; causality requires monotonic time)</p>
+</article>
+<article class="rule" id="DYN-005">
+  <div class="rule-head"><span class="rid">DYN-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L3 · built-in analysis</span></div>
+  <h4>Trajectory segment implies a physically impossible speed</h4>
+  <p class="basis">A raw trajectory segment implies a speed beyond the class record ceiling (car 140, cyclist 39, pedestrian 12.5 m/s) — a position jump, not motion.</p>
+  <p class="src"><span>Source</span> Production car speed record ~136 m/s (Bugatti Chiron SS 300+, 2019); sprint peak ~12.3 m/s (Krzysztof &amp; Mero, J. Human Kinetics 36, 2013); unpaced HPV record ~40 m/s (IHPVA/WHPSC, 2016)</p>
+</article>
+<article class="rule" id="DYN-006">
+  <div class="rule-head"><span class="rid">DYN-006</span>
+    <span class="sev err">error</span>
+    <span class="scope">L3 · built-in analysis</span></div>
+  <h4>Trajectory demands combined acceleration beyond the friction circle</h4>
+  <p class="basis">Windowed (≥ 0.4 s) longitudinal + lateral acceleration along the trajectory exceeds the friction circle µ·g sustainedly (two consecutive windows).</p>
+  <p class="src"><span>Source</span> Gillespie, T.D., Fundamentals of Vehicle Dynamics, SAE R-114 (friction circle: sqrt(a_lat^2 + a_long^2) &lt;= mu*g); Pacejka, Tire and Vehicle Dynamics, 3rd ed., Ch. 1</p>
+</article>
+<article class="rule" id="DYN-007">
+  <div class="rule-head"><span class="rid">DYN-007</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L3 · built-in analysis</span></div>
+  <h4>VRU sustains a speed beyond human endurance capability</h4>
+  <p class="basis">A pedestrian/cyclist trajectory sustains a windowed average speed beyond human endurance (marathon record pace / cycling hour record) for ≥ 30 s.</p>
+  <p class="src"><span>Source</span> World Athletics marathon world record 2:00:35 (Kiptum, Chicago 2023): 5.83 m/s sustained; UCI hour record 56.792 km (Ganna, 2022): 15.8 m/s sustained</p>
+</article>
+</section>
+<section class="pack" id="plugin-stb">
+<h3>L4 · Storyboard logic <span class="count">7 rules · built-in analysis</span></h3>
+<p class="intro">Static analysis of the scenario&#x27;s control flow — acts, events, triggers. Deliberately conservative: every rule fires only on statically certain defects, with trigger timing computed from simulation-time conditions including their delay attribute.</p>
+<article class="rule" id="STB-001">
+  <div class="rule-head"><span class="rid">STB-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L4 · built-in analysis</span></div>
+  <h4>Act stops at or before it starts</h4>
+  <p class="basis">The act&#x27;s certain stop time (simulation-time conditions + delay) is at or before its earliest possible start — the activity interval is empty.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Act (StartTrigger/StopTrigger define the act&#x27;s activity interval)</p>
+</article>
+<article class="rule" id="STB-002">
+  <div class="rule-head"><span class="rid">STB-002</span>
+    <span class="sev err">error</span>
+    <span class="scope">L4 · built-in analysis</span></div>
+  <h4>Trigger can never fire before the scenario ends</h4>
+  <p class="basis">The trigger&#x27;s earliest possible firing time is at or after the storyboard&#x27;s certain stop time — dead code.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Storyboard (StopTrigger ends the simulation; a start time at or beyond it is dead code)</p>
+</article>
+<article class="rule" id="STB-003">
+  <div class="rule-head"><span class="rid">STB-003</span>
+    <span class="sev err">error</span>
+    <span class="scope">L4 · built-in analysis</span></div>
+  <h4>Conflicting simultaneous actions on one control channel</h4>
+  <p class="basis">One event starts two or more actions on the same motion channel (longitudinal or lateral) of the same actor simultaneously.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Event (actions of one event start together; two motion controllers on the same longitudinal/lateral channel contend for the same degree of freedom)</p>
+</article>
+<article class="rule" id="STB-004">
+  <div class="rule-head"><span class="rid">STB-004</span>
+    <span class="sev err">error</span>
+    <span class="scope">L4 · built-in analysis</span></div>
+  <h4>maximumExecutionCount of zero: never executes</h4>
+  <p class="basis">An event or maneuver group declares maximumExecutionCount=&quot;0&quot;.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, attribute maximumExecutionCount (number of allowed executions)</p>
+</article>
+<article class="rule" id="STB-005">
+  <div class="rule-head"><span class="rid">STB-005</span>
+    <span class="sev err">error</span>
+    <span class="scope">L4 · built-in analysis</span></div>
+  <h4>ManeuverGroup with events but no actors</h4>
+  <p class="basis">A maneuver group contains events with private actions but declares no actors (groups holding only global actions are fine).</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Actors (private actions require an actor to apply to)</p>
+</article>
+<article class="rule" id="STB-006">
+  <div class="rule-head"><span class="rid">STB-006</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L4 · built-in analysis</span></div>
+  <h4>Storyboard declares no stop trigger</h4>
+  <p class="basis">The storyboard has no stop-trigger condition — no declared termination.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class Storyboard (without a StopTrigger the scenario has no declared termination)</p>
+</article>
+<article class="rule" id="STB-007">
+  <div class="rule-head"><span class="rid">STB-007</span>
+    <span class="sev err">error</span>
+    <span class="scope">L4 · built-in analysis</span></div>
+  <h4>Parameter compared numerically to a non-numeric value</h4>
+  <p class="basis">A ParameterCondition applies a numeric comparison (greaterThan, …) but the parameter&#x27;s declared value or the comparison value is not a number.</p>
+  <p class="src"><span>Source</span> ASAM OpenSCENARIO 1.x Model Documentation, class ParameterCondition (relational rules require comparable operand types)</p>
+</article>
+</section>
+<section class="pack" id="plugin-odd">
+<h3>L5 · ODD conformance <span class="count">3 rules · built-in analysis</span></h3>
+<p class="intro">Scenario attributes against a YAML ODD definition using OpenODD-style include/exclude conditions. Verdict per constrained attribute: in / out / undeclared — out-of-ODD is an error, undeclared a warning (conformance cannot be established for unspecified conditions).</p>
+<article class="rule" id="ODD-000">
+  <div class="rule-head"><span class="rid">ODD-000</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L5 · built-in analysis</span></div>
+  <h4>ODD definition could not be fully parsed</h4>
+  <p class="basis">The ODD YAML parsed with problems; conformance runs on the parseable constraints only.</p>
+  <p class="src"><span>Source</span> ASAM OpenODD 1.0.0 concept (include/exclude conditions over ODD attributes); ISO 34503:2023 (ODD taxonomy)</p>
+</article>
+<article class="rule" id="ODD-001">
+  <div class="rule-head"><span class="rid">ODD-001</span>
+    <span class="sev err">error</span>
+    <span class="scope">L5 · built-in analysis</span></div>
+  <h4>Attribute value outside the declared ODD</h4>
+  <p class="basis">A declared attribute value violates the ODD&#x27;s include condition or hits an exclude condition.</p>
+  <p class="src"><span>Source</span> ASAM OpenODD 1.0.0 concept (include/exclude condition semantics); ISO 34503:2023 §6 (the ODD bounds the conditions the ADS is designed to operate in)</p>
+</article>
+<article class="rule" id="ODD-002">
+  <div class="rule-head"><span class="rid">ODD-002</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L5 · built-in analysis</span></div>
+  <h4>ODD constrains an attribute the scenario leaves undeclared</h4>
+  <p class="basis">The ODD constrains an attribute the scenario does not declare at all.</p>
+  <p class="src"><span>Source</span> ISO 34503:2023 (conformance to a bounded ODD cannot be established for unspecified conditions)</p>
+</article>
+</section>
+<section class="pack" id="plugin-sta">
+<h3>L6 · Statistical plausibility <span class="count">1 rules · built-in analysis</span></h3>
+<p class="intro">The scenario&#x27;s environmental assignment scored under a learned operational model (odd-pilot&#x27;s Bayesian network). The verdict is the scenario&#x27;s quantile within the model&#x27;s own reference distribution — combinations real operation essentially never offers are flagged. Warnings only: statistical rarity never blocks execution.</p>
+<article class="rule" id="STA-001">
+  <div class="rule-head"><span class="rid">STA-001</span>
+    <span class="sev warn">warning</span>
+    <span class="scope">L6 · built-in analysis</span></div>
+  <h4>Never-observed condition combination under the operational model</h4>
+  <p class="basis">The scenario&#x27;s assignment sits below the configured quantile (default 1 %) of the operational model&#x27;s own score distribution.</p>
+  <p class="src"><span>Source</span> Design brief §4 L6 (statistical plausibility tier): probability under the learned joint distribution of real operation, flagged below a configurable quantile; data-driven, never blocks execution</p>
+</article>
+</section>
+
+<footer style="border-top:1px solid var(--border); margin-top:3rem; padding-top:1.2rem;"
+        class="muted">
+<p>This page is generated from the rule catalog by
+<code>docs/generate_physcheck_docs.py</code> — it cannot drift from the code.
+<a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a> ·
+Apache-2.0.</p>
+</footer>
+</main>
+</body>
+</html>

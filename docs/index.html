@@ -18,11 +18,32 @@
     }
   }
   * { box-sizing: border-box; }
+  :root { --sidebar-w: 250px; }
+  nav.side {
+    position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+    overflow-y: auto; background: var(--card); border-right: 1px solid var(--border);
+    padding: 1.2rem 1rem 2rem; font-size: .88rem;
+  }
+  nav.side .brand { font-weight: 800; font-size: 1.15rem; margin-bottom: .2rem; }
+  nav.side .brand span { color: var(--accent); }
+  nav.side .ver { color: var(--muted); margin-bottom: 1rem; }
+  nav.side h5 { margin: 1.1rem 0 .3rem; color: var(--muted);
+                text-transform: uppercase; font-size: .72rem; letter-spacing: .06em; }
+  nav.side a { display: block; padding: .18rem .4rem; border-radius: 6px;
+               color: var(--fg); text-decoration: none; }
+  nav.side a:hover { background: var(--accent-soft); text-decoration: none; }
+  nav.side a.strong { color: var(--accent); font-weight: 700; }
   body {
     margin: 0; font: 17px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
     background: var(--bg); color: var(--fg);
   }
-  main { max-width: 880px; margin: 0 auto; padding: 0 1.2rem 4rem; }
+  main { margin-left: var(--sidebar-w); max-width: 900px; padding: 0 2rem 4rem; }
+  @media (max-width: 900px) {
+    nav.side { position: static; width: auto; border-right: none;
+               border-bottom: 1px solid var(--border); }
+    main { margin-left: 0; padding: 0 1.2rem 4rem; }
+  }
+  .accent-soft-def { background: var(--accent-soft); }
   header.hero { text-align: center; padding: 4rem 1rem 2.5rem; }
   .hero h1 { font-size: 2.6rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
   .hero h1 span { color: var(--accent); }
@@ -81,6 +102,22 @@
 </style>
 </head>
 <body>
+<nav class="side">
+  <div class="brand">odd-<span>pilot</span></div>
+  <div class="ver">docs</div>
+  <h5>Overview</h5>
+  <a href="#problem">The problem</a>
+  <a href="#what">What odd-pilot does</a>
+  <a href="#layers">What gets checked</a>
+  <a href="#verdicts">Reading the results</a>
+  <a href="#start">Get started</a>
+  <a href="#trust">Can I trust it?</a>
+  <h5>Deep dives</h5>
+  <a class="strong" href="physcheck.html">physcheck: every rule, explained →</a>
+  <h5>Project</h5>
+  <a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a>
+  <a href="https://github.com/BorhaneddineHamadou/physcheck-benchmark">Validation benchmark</a>
+</nav>
 <main>
 
 <header class="hero">
@@ -90,7 +127,7 @@
   your tests actually cover, and generate exactly the tests you are missing.</p>
 </header>
 
-<h2>The problem, in one number</h2>
+<h2 id="problem">The problem, in one number</h2>
 <p>Teams test automated-driving software in simulators, using thousands of
 automatically generated scenarios. We audited the standard generation
 approaches and found that <b>almost every generated scenario is physically
@@ -104,7 +141,7 @@ tells you nothing about the real one.</p>
   <div class="stat"><b>0%</b><small>when odd-pilot generates and checks them</small></div>
 </div>
 
-<h2>What odd-pilot does</h2>
+<h2 id="what">What odd-pilot does</h2>
 <div class="cards">
   <div class="card"><h3>1 · Check</h3>
     <p>The built-in linter, <b>physcheck</b>, reads each scenario file and flags
@@ -130,9 +167,11 @@ tells you nothing about the real one.</p>
   <span class="step">repeat until enough</span>
 </div>
 
-<h2>What gets checked</h2>
+<h2 id="layers">What gets checked</h2>
 <p>physcheck looks at a scenario through seven independent lenses, from simple
-to sophisticated. You can use any subset; nothing else is required.</p>
+to sophisticated. You can use any subset; nothing else is required.
+<b><a href="physcheck.html">Every one of the 157 rules is documented here</a></b> —
+with its exact condition, plain-language explanation and literature source.</p>
 <table>
   <tr><th>Layer</th><th>Plain-language question it asks</th></tr>
   <tr><td>L0 · Format</td><td>Is the file well-formed, are values inside their legal ranges?</td></tr>
@@ -144,7 +183,7 @@ to sophisticated. You can use any subset; nothing else is required.</p>
   <tr><td>L6 · Realism</td><td>Even if possible — does this combination ever actually occur in real driving?</td></tr>
 </table>
 
-<h2>Reading the results</h2>
+<h2 id="verdicts">Reading the results</h2>
 <table>
   <tr><th>You see</th><th>It means</th></tr>
   <tr><td><span class="verdict v-err">ERROR</span></td><td>Physically impossible or contradictory as written — fix it before trusting any result from it.</td></tr>
@@ -157,7 +196,7 @@ to sophisticated. You can use any subset; nothing else is required.</p>
 cites the physical literature or standard it is based on. Reports come out as
 readable tables, web pages, or CI-ready formats.</p>
 
-<h2>Get started</h2>
+<h2 id="start">Get started</h2>
 <pre><code><span class="c"># install (Python 3.10+)</span>
 pip install -e physcheck/ -e odd-pilot/
 
@@ -179,7 +218,7 @@ odd-pilot plan --model world.bn -a adequacy.json -k 20 \
 <span class="c"># 5 · one evidence document for the safety case</span>
 odd-pilot report -a adequacy.json -o evidence.md</code></pre>
 
-<h2>Can I trust it?</h2>
+<h2 id="trust">Can I trust it?</h2>
 <ul>
   <li><b>Validated on real driving data:</b> across 1,109 scenario files derived
   from real recorded traffic (drone, camera and roadside-sensor datasets), the
