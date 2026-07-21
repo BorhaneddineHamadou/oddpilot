@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How odd-pilot relates to PEGASUS, Scenic, ASAM QC & the field</title>
+<style>
+  :root {
+    --bg:#ffffff; --fg:#1c2733; --muted:#5b6b7b; --accent:#0b6e4f;
+    --accent-soft:#e7f4ef; --card:#f5f7f9; --border:#dde4ea;
+    --bad:#b3261e; --code-bg:#10141a; --code-fg:#d7e0ea; --sidebar-w:250px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#10141a; --fg:#e4ebf2; --muted:#9aa8b6; --accent:#4cc79a;
+      --accent-soft:#12291f; --card:#171d26; --border:#2a3441;
+      --bad:#ff8a80; --code-bg:#0a0d12; --code-fg:#cdd8e3;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.62 system-ui,-apple-system,"Segoe UI",sans-serif;
+         background:var(--bg); color:var(--fg); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  nav.side {
+    position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w);
+    overflow-y:auto; background:var(--card); border-right:1px solid var(--border);
+    padding:1.2rem 1rem 2rem; font-size:.88rem;
+  }
+  nav.side .brand { font-weight:800; font-size:1.15rem; margin-bottom:.2rem; }
+  nav.side .brand span { color:var(--accent); }
+  nav.side .ver { color:var(--muted); margin-bottom:1rem; }
+  nav.side h5 { margin:1.1rem 0 .3rem; color:var(--muted);
+                text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
+  nav.side a { display:block; padding:.18rem .4rem; border-radius:6px; color:var(--fg); }
+  nav.side a:hover { background:var(--accent-soft); text-decoration:none; }
+  main { margin-left:var(--sidebar-w); max-width:920px; padding:2.5rem 2.2rem 5rem; }
+  @media (max-width:900px) {
+    nav.side { position:static; width:auto; border-right:none;
+               border-bottom:1px solid var(--border); }
+    main { margin-left:0; padding:1.5rem 1.2rem 4rem; }
+  }
+  h1 { font-size:1.85rem; margin:.2rem 0 .5rem; letter-spacing:-.02em; }
+  h2 { font-size:1.3rem; margin:2.5rem 0 .5rem; }
+  .muted { color:var(--muted); }
+  .sys { background:var(--card); border:1px solid var(--border); border-radius:12px;
+         padding:1rem 1.25rem; margin:1.2rem 0; }
+  .sys h2 { margin:.1rem 0 .1rem; font-size:1.15rem; }
+  .sys .kind { color:var(--muted); font-size:.82rem; margin-bottom:.6rem; }
+  .sys dl { margin:.5rem 0 0; }
+  .sys dt { font-weight:700; color:var(--accent); font-size:.85rem;
+            text-transform:uppercase; letter-spacing:.04em; margin-top:.65rem; }
+  .sys dt.gap { color:var(--bad); }
+  .sys dd { margin:.15rem 0 0 0; font-size:.95rem; }
+  table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.85rem; }
+  th, td { text-align:left; padding:.45rem .55rem; border-bottom:1px solid var(--border);
+           vertical-align:top; }
+  th { color:var(--muted); }
+  td.y { color:var(--accent); font-weight:700; }
+  td.n { color:var(--muted); }
+  td.p { color:var(--fg); }
+  .matrix-wrap { overflow-x:auto; }
+  .matrix td:first-child, .matrix th:first-child { white-space:nowrap; font-weight:600; }
+  code { font-family:ui-monospace,"SF Mono",Consolas,monospace; }
+  p code, li code, td code { background:var(--card); border:1px solid var(--border);
+    border-radius:5px; padding:.05rem .35rem; font-size:.86em; }
+  .note { border-left:4px solid var(--accent); background:var(--card);
+          border-radius:6px; padding:.65rem .95rem; margin:1rem 0; font-size:.93rem; }
+</style>
+</head>
+<body>
+<nav class="side">
+  <div class="brand">odd-<span>pilot</span> docs</div>
+  <div class="ver">related work</div>
+  <h5>Site</h5>
+  <a href="index.html">← Overview</a>
+  <a href="install.html">Download &amp; install</a>
+  <a href="oddpilot.html">odd-pilot: campaign copilot</a>
+  <a href="physcheck.html">physcheck: every rule</a>
+  <a href="findings.html">Violations in public suites</a>
+  <h5>This page</h5>
+  <a href="#frame">How to read this comparison</a>
+  <a href="#asamqc">ASAM Quality Checker</a>
+  <a href="#scenic">Scenic / VerifAI</a>
+  <a href="#pegasus">PEGASUS family</a>
+  <a href="#foretellix">Foretellix / OSC 2.0 DSL</a>
+  <a href="#commonroad">CommonRoad</a>
+  <a href="#tno">TNO StreetWise / de Gelder</a>
+  <a href="#sitcov">Situation coverage</a>
+  <a href="#ontology">Ontology-based generation</a>
+  <a href="#validity">Test-input validity (DL)</a>
+  <a href="#odd">ODD standards</a>
+  <a href="#matrix">Capability matrix</a>
+  <a href="#summary">What is genuinely ours</a>
+</nav>
+<main>
+
+<h1>Where odd-pilot sits in the field</h1>
+<p>A tool that claims "nobody checks whether scenarios are physically possible"
+owes the field a careful comparison. This page examines the systems closest to
+odd-pilot — what each one does, what it deliberately does <i>not</i> do, what we
+add on top, and, just as honestly, what each does better than us. Every factual
+claim links to its source; corrections are welcome as
+<a href="https://github.com/BorhaneddineHamadou/oddpilot/issues">issues</a>.</p>
+
+<h2 id="frame">How to read this comparison</h2>
+<p>odd-pilot combines four capabilities that usually live in different tools.
+For each related system we ask which of these it provides:</p>
+<table>
+<tr><th>Axis</th><th>The question it answers</th><th>In odd-pilot</th></tr>
+<tr><td><b>A — Artifact validity</b></td><td>Is this existing scenario <i>file</i> physically
+  possible and internally consistent?</td><td>physcheck L0–L4, 157 cited rules</td></tr>
+<tr><td><b>B — Constructive realism</b></td><td>Are <i>newly generated</i> scenarios realistic
+  by construction?</td><td>BN sampling + the physcheck gate in <code>plan</code></td></tr>
+<tr><td><b>C — Coverage adequacy</b></td><td>Have we tested <i>enough of expected real
+  operation</i>, with a defensible stopping rule?</td><td>PWCC in <code>assess</code></td></tr>
+<tr><td><b>D — ODD linkage</b></td><td>Does testing respect the declared operating
+  envelope?</td><td>L5 + <code>conform</code></td></tr>
+</table>
+<p class="muted">Being the only tool that combines A–D is an integration claim,
+not a claim that each axis is unprecedented — the sections below give each
+lineage its due.</p>
+
+<div class="sys" id="asamqc">
+<h2>ASAM Quality Checker Framework</h2>
+<p class="kind">Official open-source checker framework for the OpenX standards ·
+<a href="https://github.com/asam-ev/qc-framework">github.com/asam-ev/qc-framework</a> ·
+<a href="https://www.asam.net/standards/asam-quality-checker/">asam.net</a></p>
+<dl>
+<dt>What it does</dt><dd>A framework of "checker bundles" for ASAM formats, with
+official bundles for OpenDRIVE and OpenSCENARIO XML. The
+<a href="https://github.com/asam-ev/qc-openscenarioxml">OpenSCENARIO bundle</a>
+(~16 checkers) validates XML well-formedness, schema compliance, resolvable
+references (entities, variables, storyboard elements), parameter declarations
+and basic value constraints (e.g. non-negative transition times). Extensible:
+anyone can add bundles in any language, results merge into one report.</dd>
+<dt class="gap">What it does not check</dt><dd>Anything beyond formal correctness:
+no physical plausibility, no weather consistency, no map cross-checks, no
+kinematics — its own documentation scopes it to structure, schema and
+references. In physcheck's terms, it covers roughly layer L0.</dd>
+<dt>What we add</dt><dd>The physics: 157 cited rules across environment (L1),
+map and solar geometry (L2), motion feasibility (L3), storyboard logic (L4),
+ODD (L5) and statistical realism (L6) — plus the benchmark that measures the
+checker's own false-positive rate on real-world-derived files, which the QC
+framework has no equivalent of.</dd>
+<dt>What it does better</dt><dd>Standardisation and neutrality: it is ASAM's own
+framework, multi-format (OpenDRIVE too), with an ecosystem process behind it.
+The natural convergence — on our roadmap — is packaging physcheck as a QC
+<i>checker bundle</i>, so its physics rules run inside the official framework.</dd>
+</dl>
+</div>
+
+<div class="sys" id="scenic">
+<h2>Scenic / VerifAI</h2>
+<p class="kind">Probabilistic scenario programming language (UC Berkeley / UCSC) ·
+<a href="https://docs.scenic-lang.org/">docs.scenic-lang.org</a> ·
+<a href="https://arxiv.org/abs/2010.06580">Fremont et al.</a></p>
+<dl>
+<dt>What it does</dt><dd>Scenarios are <i>programs</i>: distributions over scene
+configurations and behaviors, with hard and soft constraints. Sampling yields
+concrete scenarios that respect the constraints by construction — arguably the
+most elegant prevention of implausibility for scenarios <i>authored in
+Scenic</i>. VerifAI adds falsification and analysis around it.</dd>
+<dt class="gap">What it does not check</dt><dd>Anything it did not generate. The
+OpenSCENARIO 1.x ecosystem — hand-written suites, dataset conversions, vendor
+catalogs, template libraries (where we found the 200 m/s² placeholders and
+midnight suns) — is outside its reach. And the realism of Scenic output is
+bounded by what each programmer chose to constrain: there is no built-in,
+citation-grounded physics catalog; nothing stops an author declaring rain with
+a friction of 1.0 unless they wrote that constraint themselves.</dd>
+<dt>What we add</dt><dd>Post-hoc, artifact-level auditing with an explicit,
+cited rule catalog — validity as a <i>checkable property of the file</i>, not of
+the generating process. The two compose naturally: Scenic-generated scenarios
+exported to OpenSCENARIO can be physchecked like any other file.</dd>
+<dt>What it does better</dt><dd>Expressing scenario <i>intent</i> and structured
+randomness; multi-simulator execution; a mature academic ecosystem. For
+authoring new scenario families from scratch, a constraint language beats a
+linter.</dd>
+</dl>
+</div>
+
+<div class="sys" id="pegasus">
+<h2>The PEGASUS family (PEGASUS, 6-layer model, scenario databases)</h2>
+<p class="kind">German flagship methodology projects for ADS release ·
+<a href="https://www.pegasusprojekt.de/files/tmpl/Pegasus-Abschlussveranstaltung/15_Scenario-Database.pdf">scenario database</a> ·
+<a href="https://arxiv.org/pdf/2012.06319">6-layer model</a> ·
+<a href="https://www.researchgate.net/publication/338019746_PEGASUS_METHOD">method overview</a></p>
+<dl>
+<dt>What it does</dt><dd>The process backbone of scenario-based testing:
+functional → logical → concrete scenario abstraction, the 6-layer environment
+model (road, infrastructure, temporary changes, objects, environment, digital
+information), scenario databases fed from real traffic, criticality metrics,
+and database-level quality criteria (input-data quality, concept completeness,
+processing quality, database coverage).</dd>
+<dt class="gap">What it does not check</dt><dd>PEGASUS's quality criteria govern
+the <i>database and its pipeline</i>, not individual scenario artifacts: there
+is no per-file physics validation of the OpenSCENARIO instances a database
+exports, no cited-threshold catalog, and no released open checker. Its coverage
+notion is database completeness, not a risk-calibrated exposure stopping
+rule.</dd>
+<dt>What we add</dt><dd>The enforcement layer PEGASUS-style processes assume but
+do not ship: machine-checkable physics at the artifact level (our layers
+loosely instantiate the 6-layer model's road/environment/object separation),
+plus PWCC's quantified adequacy with an explicit ε-stopping decision.</dd>
+<dt>What it does better</dt><dd>Institutional scope: data pipelines,
+criticality analysis, release argumentation, regulator engagement — a process
+odd-pilot plugs into rather than replaces.</dd>
+</dl>
+</div>
+
+<div class="sys" id="foretellix">
+<h2>Foretellix / OpenSCENARIO 2.0 DSL</h2>
+<p class="kind">Industrial coverage-driven verification; M-SDL seeded OSC 2.0 ·
+<a href="https://www.foretellix.com/openscenario-2-0/">foretellix.com</a> ·
+<a href="https://www.prnewswire.com/news-releases/asams-openscenario-2-0-concepts-demonstrated-using-foretellix-m-sdl-301045000.html">M-SDL → OSC 2.0</a></p>
+<dl>
+<dt>What it does</dt><dd>Brings hardware-verification discipline to ADS testing:
+abstract scenarios with constraints, mass concretisation, execution monitoring,
+and <i>measurable coverage goals</i> ("quality of coverage over quantity of
+miles") with predefined verification suites, KPIs and checkers. The most
+mature industrial realisation of coverage-driven scenario testing.</dd>
+<dt class="gap">What it does not check</dt><dd>Its coverage is defined over
+<i>user-declared</i> parameter spaces and goals — reaching your own coverage
+targets says nothing about how much of <i>real-world operation</i> those targets
+represent, and there is no published probability-weighted link to field data
+with a statistical stopping rule. Runtime checkers judge behaviour, not the
+declared physics of the input files; it is commercial and closed; and it
+centres on OSC 2.0, not the vast existing OSC 1.x artifact base.</dd>
+<dt>What we add</dt><dd>Open tooling for the 1.x world; coverage weighted by a
+<i>learned operational distribution</i> with exposure requirements derived from a
+risk budget (E<sub>min</sub> = −ln α · P̃(c)/ρ) rather than hand-declared goals;
+and artifact-level physics auditing with a benchmarked false-positive rate.</dd>
+<dt>What it does better</dt><dd>Scale, execution orchestration, industrial
+hardening, behavioural checkers at runtime, and OSC 2.0 leadership. In a mature
+deployment the two are complementary: Foretellix-style campaigns are exactly
+where an operational-weighted adequacy metric and an input-physics gate would
+slot in.</dd>
+</dl>
+</div>
+
+<div class="sys" id="commonroad">
+<h2>CommonRoad Drivability Checker</h2>
+<p class="kind">Open toolbox for motion-planning validation (TUM) ·
+<a href="https://commonroad.in.tum.de/docs/commonroad-drivability-checker/sphinx/index.html">docs</a> ·
+<a href="https://ieeexplore.ieee.org/document/9304544/">IV 2020 paper</a></p>
+<dl>
+<dt>What it does</dt><dd>Validates <i>planned trajectories</i> against vehicle
+models: collision checking, road-boundary compliance, and kinematic
+feasibility by reconstructing the control inputs a trajectory would require
+and checking them against the vehicle model's constraints. Real-time capable;
+the reference for feasibility checking in the motion-planning community.</dd>
+<dt class="gap">What it does not check</dt><dd>It validates a <i>planner's
+output</i> in the CommonRoad format — not test scenarios as artifacts: no
+OpenSCENARIO, no environment physics (weather, friction chains, solar
+geometry), no storyboard logic, no notion of a test campaign.</dd>
+<dt>What we add</dt><dd>The same <i>spirit</i> applied one level up: our L3
+friction-circle and trajectory checks ask "could any real vehicle do what this
+scenario declares?", composed with the L1 environment (braking bounds shrink
+on a flooded road) and embedded in a full campaign toolchain for the
+OpenSCENARIO ecosystem.</dd>
+<dt>What it does better</dt><dd>Model fidelity: it checks against parametrised
+vehicle dynamics models, where our L3 uses deliberately generous cited
+envelopes. For validating a specific vehicle's planned motion, use CommonRoad;
+for auditing declared scenarios, physcheck.</dd>
+</dl>
+</div>
+
+<div class="sys" id="tno">
+<h2>TNO StreetWise &amp; scenario-database coverage metrics</h2>
+<p class="kind">Data-driven scenario mining and representativeness assessment ·
+<a href="https://www.tno.nl/en/digital/smart-traffic-transport/smart-vehicles/integrated-vehicle-safety-smart-vehicles/streetwise/">StreetWise</a> ·
+<a href="https://arxiv.org/pdf/2409.01139">coverage metrics (de Gelder et al.)</a> ·
+<a href="https://arxiv.org/pdf/2202.12025">representativeness metric</a></p>
+<dl>
+<dt>What it does</dt><dd>Mines scenarios from real road data and — closest in
+spirit to our <code>assess</code> — quantifies whether a scenario database covers
+the ODD and the driving data, using density estimation over scenario
+parameters (KDE/SVD) and representativeness metrics for generated
+parameters.</dd>
+<dt class="gap">What it does not check</dt><dd>The object of assessment is the
+<i>database</i>: is the collection representative? It does not compute
+per-combination required <i>exposure</i> from a risk budget, has no
+adequacy/stopping verdict for an executed campaign, no physics validation of
+exported artifacts, and no generation loop closing measured gaps.</dd>
+<dt>What we add</dt><dd>The step from "the suite is representative" to "the
+executed testing is <i>enough</i>": PWCC ties each condition combination's
+required hours to its real-world probability and a risk budget, yields an
+explicit STOP/CONTINUE verdict, and feeds its gaps directly into gated
+generation.</dd>
+<dt>What it does better</dt><dd>Scenario <i>mining</i> from raw fleet data — the
+upstream step we deliberately don't do (our <code>model fit</code> starts from a
+tabular profile someone else extracted). A StreetWise-style pipeline is the
+natural producer of odd-pilot's profiling input.</dd>
+</dl>
+</div>
+
+<div class="sys" id="sitcov">
+<h2>Situation coverage (Alexander, Hawkins &amp; Rae)</h2>
+<p class="kind">Coverage criterion for autonomous-robot testing (York, 2015) ·
+<a href="https://eprints.whiterose.ac.uk/id/eprint/88736/">paper</a> ·
+<a href="https://arxiv.org/pdf/1911.06501">AV case study</a></p>
+<dl>
+<dt>What it does</dt><dd>The founding articulation of coverage over external
+<i>situations</i> rather than code: enumerate a situation space, measure which
+combinations testing has visited, drive generation toward unvisited ones.</dd>
+<dt class="gap">What it does not check</dt><dd>Combinations count equally
+regardless of how often reality produces them, a visit counts regardless of
+exposure duration, and there is no risk-calibrated threshold saying when
+coverage suffices — the authors themselves note the epistemic gap. No validity
+checking of the situations either.</dd>
+<dt>What we add</dt><dd>PWCC is situation coverage made operational-statistical:
+mass-weighted by a learned distribution, exposure-based (hours, not visits),
+with E<sub>min</sub> derived from confidence and risk budget — plus the guarantee
+that generated situations are physically possible at all.</dd>
+<dt>What it does better</dt><dd>Simplicity and generality: it needs no
+operational data and applies to any autonomous system, which is why it remains
+the standard baseline — and it is the intellectual ancestor our metric should
+be evaluated against.</dd>
+</dl>
+</div>
+
+<div class="sys" id="ontology">
+<h2>Ontology-based scene &amp; scenario generation</h2>
+<p class="kind">Knowledge-based generation (Bagschik, Menzel &amp; Maurer; successors) ·
+<a href="https://arxiv.org/abs/1704.01006">IV 2018 paper</a></p>
+<dl>
+<dt>What it does</dt><dd>Encodes traffic-domain expert knowledge in an ontology
+and generates scenes/scenarios that respect the encoded relations —
+consistency by construction, the knowledge-engineering sibling of Scenic's
+constraint approach; feeds functional-scenario catalogs for safety
+analysis.</dd>
+<dt class="gap">What it does not check</dt><dd>Existing artifacts: like Scenic,
+correctness lives in the generator, not in an auditable property of the files
+the rest of the world produces. Published ontologies centre on road/traffic
+structure; quantitative environmental physics (friction-temperature-
+precipitation couplings, solar geometry, tire limits) with literature-cited
+thresholds is not their focus.</dd>
+<dt>What we add</dt><dd>A complementary enforcement point (audit the artifact,
+whoever made it) and the quantitative physics layer with citations — our rule
+catalog is, in effect, a small quantified ontology of physical couplings, with
+a benchmark measuring its own error rate.</dd>
+<dt>What it does better</dt><dd>Rich structural/semantic relations (road
+topology, traffic rules, actor roles) beyond what attribute-level predicates
+express; a principled path to <i>completeness</i> arguments over scenario
+catalogs.</dd>
+</dl>
+</div>
+
+<div class="sys" id="validity">
+<h2>Test-input validity research (DL testing)</h2>
+<p class="kind">SE research on invalid generated test inputs ·
+<a href="https://dl.acm.org/doi/10.1109/ICSE48619.2023.00104">ICSE 2023 empirical study</a> ·
+<a href="https://arxiv.org/pdf/2501.01606">active-learning validators</a></p>
+<dl>
+<dt>What it does</dt><dd>Established, in the deep-learning testing domain, the
+exact problem pattern we target: test generators produce inputs outside the
+valid domain, invalid inputs yield spurious failures and false confidence, and
+automated validators are needed. Validators there are typically <i>learned</i>
+(VAE reconstruction error, discriminators) or human-in-the-loop, because "is
+this a digit?" resists formalisation.</dd>
+<dt class="gap">What it does not check</dt><dd>Driving scenarios. And its
+learned validators are probabilistic and opaque — appropriate for images,
+unnecessary for a domain with physical laws.</dd>
+<dt>What we add</dt><dd>The observation that for ADS scenarios validity <i>is</i>
+largely formalisable: physics gives symbolic, citable, deterministic
+validity predicates — no learned validator needed for the impossible, with the
+learned tier (L6) reserved for the merely-improbable. Our generated-corpus
+study (98.6–100 % invalid) is the ADS-scenario analogue of their empirical
+finding, with a stronger oracle.</dd>
+<dt>What it does better</dt><dd>Domains without formalisable validity — and a
+decade of framing on validity-vs-usefulness of generated tests that our papers
+should build on explicitly.</dd>
+</dl>
+</div>
+
+<div class="sys" id="odd">
+<h2>ODD standards: ISO 34503, BSI PAS 1883, ASAM OpenODD</h2>
+<p class="kind">Taxonomies and formats for declaring the operating envelope ·
+<a href="https://www.iso.org/standard/78952.html">ISO 34503:2023</a></p>
+<dl>
+<dt>What they do</dt><dd>Define <i>how to state</i> an ODD: hierarchical
+taxonomies of scenery, environment and dynamic-element conditions (ISO 34503,
+PAS 1883) and a machine-readable exchange format (OpenODD concept). The
+standards are explicit that test procedures and runtime monitoring are out of
+scope.</dd>
+<dt class="gap">What they do not provide</dt><dd>An executable conformance
+check for test artifacts — a declared ODD with no tool that asks "does this
+scenario suite actually stay inside it?" remains paperwork.</dd>
+<dt>What we add</dt><dd><code>conform</code> operationalises the include/exclude
+semantics per scenario with in/out/undeclared verdicts, and <code>assess</code>
+weighs coverage <i>within</i> that envelope. (Honest caveat: our ODD YAML
+implements OpenODD's semantics over our attribute vocabulary — it does not yet
+parse the ASAM exchange format itself.)</dd>
+<dt>What they do better</dt><dd>They are the normative reference — our job is to
+track them, not replace them.</dd>
+</dl>
+</div>
+
+<h2 id="matrix">Capability matrix</h2>
+<div class="matrix-wrap">
+<table class="matrix">
+<tr><th>System</th><th>Schema /<br>references</th><th>Physics of<br>the artifact</th>
+    <th>Map cross-<br>checks</th><th>Kinematic<br>feasibility</th><th>Storyboard<br>logic</th>
+    <th>Realistic<br>generation</th><th>Operational-<br>weighted coverage</th>
+    <th>Risk-calibrated<br>stopping rule</th><th>ODD<br>conformance</th>
+    <th>Open<br>source</th><th>Self-<br>benchmarked FP rate</th></tr>
+<tr><td>ASAM Quality Checker</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td>
+    <td class="n">—</td><td class="p">partial¹</td><td class="n">—</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="n">—</td></tr>
+<tr><td>Scenic / VerifAI</td><td class="n">n/a²</td><td class="p">by construction²</td><td class="p">via maps²</td>
+    <td class="n">—</td><td class="n">—</td><td class="y">✓ (constraints)</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="n">—</td></tr>
+<tr><td>PEGASUS family</td><td class="n">—</td><td class="n">—</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="p">DB-driven</td><td class="p">DB coverage</td>
+    <td class="n">—</td><td class="p">taxonomy</td><td class="p">method</td><td class="n">—</td></tr>
+<tr><td>Foretellix / OSC 2.0</td><td class="y">✓</td><td class="n">—</td><td class="p">runtime</td>
+    <td class="n">—</td><td class="p">runtime</td><td class="y">✓ (constraints)</td>
+    <td class="p">declared goals</td><td class="n">—</td><td class="p">partial</td><td class="n">—</td><td class="n">—</td></tr>
+<tr><td>CommonRoad DC</td><td class="n">n/a</td><td class="n">—</td><td class="p">road bounds</td>
+    <td class="y">✓ (trajectories)</td><td class="n">—</td><td class="n">—</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="n">—</td></tr>
+<tr><td>StreetWise / de Gelder</td><td class="n">—</td><td class="n">—</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="p">mined from data</td><td class="y">✓ (representativeness)</td>
+    <td class="n">—</td><td class="p">ODD tags</td><td class="p">partly</td><td class="n">—</td></tr>
+<tr><td>Situation coverage</td><td class="n">—</td><td class="n">—</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="p">unweighted</td>
+    <td class="n">—</td><td class="n">—</td><td class="p">concept</td><td class="n">—</td></tr>
+<tr><td>Ontology-based gen.</td><td class="n">—</td><td class="p">by construction</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="y">✓ (knowledge)</td><td class="n">—</td>
+    <td class="n">—</td><td class="p">taxonomy</td><td class="p">varies</td><td class="n">—</td></tr>
+<tr><td><b>odd-pilot</b></td><td class="y">✓ L0</td><td class="y">✓ L1, cited</td><td class="y">✓ L2</td>
+    <td class="y">✓ L3</td><td class="y">✓ L4</td><td class="y">✓ BN + gate</td><td class="y">✓ PWCC</td>
+    <td class="y">✓ ε / ρ / α</td><td class="y">✓ L5 + conform</td><td class="y">✓</td><td class="y">✓ (0 FP / 1,109)</td></tr>
+</table>
+</div>
+<p class="muted">¹ reference resolution inside the storyboard, not reachability/conflict
+analysis. ² Scenic does not consume OpenSCENARIO 1.x artifacts; realism holds for
+scenarios authored in Scenic, to the extent the author encoded constraints.
+"—" means: not a goal of that system (which is not a criticism — see each section).</p>
+
+<h2 id="summary">So what is genuinely ours?</h2>
+<ul>
+<li><b>Artifact-level physics auditing with citations.</b> The official ASAM
+checker validates form; generation languages prevent what their authors
+encode; nothing else audits the OpenSCENARIO 1.x artifact base — hand-written,
+converted, catalogued — against literature-grounded physics. That gap is
+confirmed by the checkers' own scope statements, and by what we found in
+<a href="findings.html">the public suites</a>.</li>
+<li><b>A checker that measures its own error rate.</b> We found no comparable
+tool with a real-data false-positive benchmark and adversarial triage of every
+finding. This is standard practice in some fields; it should be here.</li>
+<li><b>Risk-calibrated, operationally-weighted adequacy.</b> Coverage notions
+exist (situation coverage, Foretellix goals, database representativeness);
+tying required exposure per combination to a learned operational distribution
+and a risk budget, with an explicit stopping verdict, is PWCC's contribution
+(paper in submission) — odd-pilot is its first embedding in a full
+toolchain.</li>
+<li><b>The closed loop with a validity gate.</b> Generate from the measured
+gaps, keep dependencies naturalistic by conditioning the operational model,
+and physics-check every candidate before it exists — quantified in our study:
+98.6–100 % invalid for standard strategies vs 0 % gated, at 99 % yield.</li>
+</ul>
+<div class="note"><b>And what we owe the field:</b> the situation-coverage line
+gave us the question; PEGASUS the abstraction levels and layer thinking;
+Scenic and the ontologies the proof that constructive realism works at
+authoring time; CommonRoad the standard for kinematic feasibility checking;
+the DL-testing community the validity-of-generated-inputs framing; TNO the
+data-driven coverage spirit; ASAM the formats that make any of this
+interoperable. odd-pilot is an integration and enforcement layer standing on
+all of it.</div>
+
+<footer style="border-top:1px solid var(--border); margin-top:3rem; padding-top:1.2rem;"
+        class="muted">
+<p>Sources are linked inline per system (verified July 2026).
+<a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a> ·
+Apache-2.0.</p>
+</footer>
+</main>
+</body>
+</html>
