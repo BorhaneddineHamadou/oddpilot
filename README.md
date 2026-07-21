@@ -35,10 +35,34 @@ This is a monorepo hosting two Python distributions:
 | [`physcheck/`](physcheck/) | **v0.3 — implemented** | Standalone layered plausibility linter for ASAM OpenSCENARIO 1.x: typed Scenario IR, YAML rule catalog with full literature citations, OpenDRIVE map cross-checks (L2) incl. solar ephemeris, kinematic feasibility (L3) incl. trajectory physics, `lint` / `rules` CLI, SARIF/HTML/JSON output. |
 | [`odd-pilot/`](odd-pilot/) | **v0.4 — model/assess/gaps/plan/report/loop implemented** | Campaign copilot: learned operational model (BN), PWCC probability-weighted coverage & risk-calibrated adequacy (`assess`, exit-code CI gate, ε-sweep), ranked coverage gaps, and gap-targeted generation (`plan`: conditional BN sampling, max–min diversity, `--rarity` mode, physcheck-gated instantiation). `conform` (L5 OpenODD) on the roadmap. Depends on `physcheck`. |
 
+## Installation (step by step)
+
+```bash
+# 1. get the code (or: GitHub → Code → Download ZIP)
+git clone https://github.com/BorhaneddineHamadou/oddpilot.git
+cd oddpilot
+
+# 2. recommended: a virtual environment
+python3 -m venv .venv && source .venv/bin/activate   # Windows: py -m venv .venv ; .venv\Scripts\Activate.ps1
+
+# 3. install — the linter alone (one lightweight dependency) ...
+pip install -e physcheck/
+#    ... or the full campaign copilot (adds pandas + pgmpy)
+pip install -e physcheck/ -e odd-pilot/
+
+# 4. verify against the shipped examples
+physcheck lint examples/violating   # must report errors
+physcheck lint examples/valid       # must be clean
+```
+
+Requirements: Python ≥ 3.10 and git — no simulator, no GPU, no admin rights;
+the tool makes no network calls at runtime. Update later with `git pull`
+(editable installs pick changes up immediately). Full walkthrough with
+Windows commands and troubleshooting: [installation guide](https://borhaneddinehamadou.github.io/oddpilot/install.html).
+
 ## Quick start (physcheck)
 
 ```bash
-pip install -e physcheck/
 
 physcheck lint examples/                     # lint a directory of .xosc files (layers L0–L1)
 physcheck lint suite/ --map town04.xodr      # enable L2 map cross-checks + L3 kinematics

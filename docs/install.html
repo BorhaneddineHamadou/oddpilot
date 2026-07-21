@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install odd-pilot — step by step</title>
+<style>
+  :root {
+    --bg:#ffffff; --fg:#1c2733; --muted:#5b6b7b; --accent:#0b6e4f;
+    --accent-soft:#e7f4ef; --card:#f5f7f9; --border:#dde4ea;
+    --bad:#b3261e; --code-bg:#10141a; --code-fg:#d7e0ea; --sidebar-w:250px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#10141a; --fg:#e4ebf2; --muted:#9aa8b6; --accent:#4cc79a;
+      --accent-soft:#12291f; --card:#171d26; --border:#2a3441;
+      --bad:#ff8a80; --code-bg:#0a0d12; --code-fg:#cdd8e3;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;
+         background:var(--bg); color:var(--fg); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  nav.side {
+    position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w);
+    overflow-y:auto; background:var(--card); border-right:1px solid var(--border);
+    padding:1.2rem 1rem 2rem; font-size:.88rem;
+  }
+  nav.side .brand { font-weight:800; font-size:1.15rem; margin-bottom:.2rem; }
+  nav.side .brand span { color:var(--accent); }
+  nav.side .ver { color:var(--muted); margin-bottom:1rem; }
+  nav.side h5 { margin:1.1rem 0 .3rem; color:var(--muted);
+                text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
+  nav.side a { display:block; padding:.18rem .4rem; border-radius:6px; color:var(--fg); }
+  nav.side a:hover { background:var(--accent-soft); text-decoration:none; }
+  main { margin-left:var(--sidebar-w); max-width:900px; padding:2.5rem 2.2rem 5rem; }
+  @media (max-width:900px) {
+    nav.side { position:static; width:auto; border-right:none;
+               border-bottom:1px solid var(--border); }
+    main { margin-left:0; padding:1.5rem 1.2rem 4rem; }
+  }
+  h1 { font-size:1.9rem; margin:.2rem 0 .5rem; letter-spacing:-.02em; }
+  h2 { font-size:1.3rem; margin:2.4rem 0 .5rem; }
+  .muted { color:var(--muted); }
+  pre { background:var(--code-bg); color:var(--code-fg); border-radius:10px;
+        padding:.85rem 1.05rem; overflow-x:auto; font-size:.85rem; line-height:1.55; margin:.6rem 0; }
+  pre .c { color:#7d8da0; }
+  code { font-family:ui-monospace,"SF Mono",Consolas,monospace; }
+  p code, li code, td code { background:var(--card); border:1px solid var(--border);
+    border-radius:5px; padding:.05rem .35rem; font-size:.86em; }
+  .step { background:var(--card); border:1px solid var(--border); border-radius:12px;
+          padding:1rem 1.2rem 1.1rem; margin:1.1rem 0; }
+  .step h2 { margin:0 0 .4rem; font-size:1.1rem; }
+  .step h2 span { display:inline-block; background:var(--accent); color:var(--bg);
+    border-radius:999px; width:1.6rem; height:1.6rem; text-align:center;
+    line-height:1.6rem; font-size:.95rem; margin-right:.55rem; }
+  table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }
+  th, td { text-align:left; padding:.5rem .65rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--muted); }
+  .note { border-left:4px solid var(--accent); background:var(--card);
+          border-radius:6px; padding:.6rem .9rem; margin:.8rem 0; font-size:.92rem; }
+</style>
+</head>
+<body>
+<nav class="side">
+  <div class="brand">odd-<span>pilot</span> docs</div>
+  <div class="ver">installation</div>
+  <h5>Site</h5>
+  <a href="index.html">← Overview</a>
+  <a href="oddpilot.html">odd-pilot: campaign copilot</a>
+  <a href="physcheck.html">physcheck: every rule</a>
+  <a href="findings.html">Violations in public suites</a>
+  <h5>This page</h5>
+  <a href="#need">What you need</a>
+  <a href="#steps">Install, step by step</a>
+  <a href="#first">Your first real lint</a>
+  <a href="#which">Which package do I need?</a>
+  <a href="#update">Updating</a>
+  <a href="#trouble">Troubleshooting</a>
+</nav>
+<main>
+
+<h1>Download &amp; install<span class="muted"> — step by step</span></h1>
+<p>Ten minutes from nothing to your first physics-checked scenario. Works the
+same on Linux, macOS and Windows; every block is copy-paste ready.</p>
+
+<h2 id="need">What you need first</h2>
+<table>
+<tr><th>Requirement</th><th>Check with</th><th>If missing</th></tr>
+<tr><td>Python 3.10 or newer</td><td><code>python3 --version</code>
+    (Windows: <code>py --version</code>)</td>
+    <td>Install from <a href="https://www.python.org/downloads/">python.org</a>
+    — on Windows, tick “Add python.exe to PATH”.</td></tr>
+<tr><td>git</td><td><code>git --version</code></td>
+    <td><a href="https://git-scm.com/downloads">git-scm.com</a> — or skip git
+    entirely and use the ZIP download in step 1.</td></tr>
+</table>
+<p class="muted">No simulator, no GPU, no admin rights needed. odd-pilot is
+plain Python and never talks to the network at runtime.</p>
+
+<h2 id="steps">Install, step by step</h2>
+
+<div class="step">
+<h2><span>1</span>Get the code</h2>
+<pre><code>git clone https://github.com/BorhaneddineHamadou/oddpilot.git
+cd oddpilot</code></pre>
+<p class="muted">No git? On the <a
+href="https://github.com/BorhaneddineHamadou/oddpilot">GitHub page</a> click
+<b>Code → Download ZIP</b>, unpack it, and open a terminal in the unpacked
+folder instead.</p>
+</div>
+
+<div class="step">
+<h2><span>2</span>Create a virtual environment <span class="muted" style="background:none;color:var(--muted);width:auto;font-size:.8rem;">(recommended, keeps your system Python clean)</span></h2>
+<pre><code><span class="c"># Linux / macOS</span>
+python3 -m venv .venv
+source .venv/bin/activate
+
+<span class="c"># Windows (PowerShell)</span>
+py -m venv .venv
+.venv\Scripts\Activate.ps1</code></pre>
+<p class="muted">Your prompt now shows <code>(.venv)</code>. Re-run the
+<code>activate</code> line whenever you open a new terminal.</p>
+</div>
+
+<div class="step">
+<h2><span>3</span>Install</h2>
+<pre><code><span class="c"># the linter only — one lightweight dependency (PyYAML)</span>
+pip install -e physcheck/
+
+<span class="c"># ... or the full campaign copilot (adds pandas + pgmpy)</span>
+pip install -e physcheck/ -e odd-pilot/</code></pre>
+</div>
+
+<div class="step">
+<h2><span>4</span>Verify — lint the shipped examples</h2>
+<p>The repository ships three deliberately broken scenarios and three clean
+ones, exactly for this moment:</p>
+<pre><code>physcheck --version
+physcheck lint examples/violating        <span class="c"># must report errors …</span>
+physcheck lint examples/valid            <span class="c"># … and this must be clean</span></code></pre>
+<p>You should see findings like <i>“midnight sun”</i> and <i>“impossible
+kinematics”</i> on the first command, and a clean pass on the second. If both
+behave as described, <b>you are done installing</b>.</p>
+</div>
+
+<h2 id="first">Your first real lint</h2>
+<pre><code><span class="c"># point it at any folder of .xosc files</span>
+physcheck lint path/to/your_scenarios/
+
+<span class="c"># with your OpenDRIVE map: adds the map and motion checks (L2+L3)</span>
+physcheck lint path/to/your_scenarios/ --map your_map.xodr
+
+<span class="c"># see warnings too, and save a shareable web report</span>
+physcheck lint your_scenarios/ --severity warning --format html -o report.html
+
+<span class="c"># understand any finding in depth (rule text, threshold, literature source)</span>
+physcheck rules show KIN-018</code></pre>
+<p>From there, the <a href="oddpilot.html">campaign copilot page</a> walks
+through measuring coverage and generating the tests you are missing — and the
+<a href="physcheck.html">rule reference</a> documents all 157 checks.</p>
+
+<h2 id="which">Which package do I need?</h2>
+<table>
+<tr><th>You want to…</th><th>Install</th><th>Commands you get</th></tr>
+<tr><td>Check scenario files for physics/consistency problems (most users start here)</td>
+    <td><code>pip install -e physcheck/</code></td>
+    <td><code>physcheck lint</code>, <code>physcheck rules</code></td></tr>
+<tr><td>Also measure coverage adequacy, generate gap-targeted tests, produce
+    evidence reports, drive the whole loop</td>
+    <td><code>pip install -e physcheck/ -e odd-pilot/</code></td>
+    <td>everything above + <code>odd-pilot model / assess / gaps / plan /
+    report / conform / loop</code></td></tr>
+<tr><td>Develop or run the test suite</td>
+    <td><code>pip install -e "physcheck/[dev]" -e "odd-pilot/[dev]"</code></td>
+    <td>+ <code>pytest</code>, <code>ruff</code>, <code>mypy</code></td></tr>
+</table>
+<div class="note">PyPI packages (<code>pip install physcheck</code> without
+cloning) are planned; until then the editable install above is the supported
+path.</div>
+
+<h2 id="update">Updating</h2>
+<pre><code>cd oddpilot
+git pull            <span class="c"># fetches the newest rules and features</span></code></pre>
+<p class="muted">Editable installs pick the update up immediately — no
+reinstall needed. Check what changed with <code>git log --oneline -10</code>.</p>
+
+<h2 id="trouble">Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Fix</th></tr>
+<tr><td><code>physcheck: command not found</code></td>
+    <td>The virtual environment is not active — re-run the
+    <code>activate</code> line from step 2. (Or call it as
+    <code>python3 -m physcheck.cli lint …</code>.)</td></tr>
+<tr><td><code>python3: command not found</code> (Windows)</td>
+    <td>Use <code>py</code> instead of <code>python3</code> everywhere.</td></tr>
+<tr><td>pip fails building <code>pgmpy</code>/<code>pandas</code></td>
+    <td>Those are only needed by <code>odd-pilot</code>. Install just
+    <code>physcheck/</code> first; upgrade pip
+    (<code>pip install --upgrade pip</code>) before retrying the rest.</td></tr>
+<tr><td>Air-gapped machine / no PyPI access</td>
+    <td>physcheck needs only PyYAML: copy the repo plus a PyYAML wheel and
+    <code>pip install --no-index</code> them. The tool itself makes no network
+    calls.</td></tr>
+<tr><td><code>note: map cross-checks skipped …</code></td>
+    <td>Not an error: L2/L3 need an OpenDRIVE map. Pass <code>--map file.xodr</code>
+    or let each scenario's own RoadNetwork reference resolve.</td></tr>
+<tr><td>Something else</td>
+    <td><a href="https://github.com/BorhaneddineHamadou/oddpilot/issues">Open an
+    issue</a> with the command you ran and its full output.</td></tr>
+</table>
+
+<footer style="border-top:1px solid var(--border); margin-top:3rem; padding-top:1.2rem;"
+        class="muted">
+<p><a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a> ·
+<a href="index.html">docs overview</a> · Apache-2.0.</p>
+</footer>
+</main>
+</body>
+</html>

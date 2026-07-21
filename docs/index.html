@@ -113,6 +113,7 @@
   <a href="#start">Get started</a>
   <a href="#trust">Can I trust it?</a>
   <h5>Deep dives</h5>
+  <a class="strong" href="install.html">Download &amp; install →</a>
   <a class="strong" href="oddpilot.html">odd-pilot: the campaign copilot →</a>
   <a class="strong" href="physcheck.html">physcheck: every rule, explained →</a>
   <a class="strong" href="findings.html">Violations found in public suites →</a>
@@ -199,8 +200,13 @@ cites the physical literature or standard it is based on. Reports come out as
 readable tables, web pages, or CI-ready formats.</p>
 
 <h2 id="start">Get started</h2>
-<pre><code><span class="c"># install (Python 3.10+)</span>
+<p><b><a href="install.html">Step-by-step installation guide</a></b> — ten
+minutes from nothing to your first physics-checked scenario (Linux, macOS,
+Windows, incl. verification and troubleshooting). The short version:</p>
+<pre><code><span class="c"># get the code and install (Python 3.10+)</span>
+git clone https://github.com/BorhaneddineHamadou/oddpilot.git &amp;&amp; cd oddpilot
 pip install -e physcheck/ -e odd-pilot/
+physcheck lint examples/violating   <span class="c"># verify: must report errors</span>
 
 <span class="c"># 1 · check a folder of scenarios — the only command many teams need</span>
 odd-pilot lint my_scenarios/
