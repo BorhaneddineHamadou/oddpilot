@@ -345,6 +345,7 @@ TEMPLATE = """<!DOCTYPE html>
   <h5>Site</h5>
   <a href="index.html">← Overview</a>
   <a href="findings.html">Violations in public suites</a>
+  <a href="oddpilot.html">odd-pilot: campaign copilot</a>
   <h5>physcheck</h5>
   <a href="#what">What it is</a>
   <a href="#how">How it is implemented</a>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>odd-pilot — the campaign copilot, explained</title>
+<style>
+  :root {
+    --bg:#ffffff; --fg:#1c2733; --muted:#5b6b7b; --accent:#0b6e4f;
+    --accent-soft:#e7f4ef; --card:#f5f7f9; --border:#dde4ea;
+    --bad:#b3261e; --warnc:#8a6d00; --code-bg:#10141a; --code-fg:#d7e0ea;
+    --sidebar-w:250px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#10141a; --fg:#e4ebf2; --muted:#9aa8b6; --accent:#4cc79a;
+      --accent-soft:#12291f; --card:#171d26; --border:#2a3441;
+      --bad:#ff8a80; --warnc:#ffd54f; --code-bg:#0a0d12; --code-fg:#cdd8e3;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;
+         background:var(--bg); color:var(--fg); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  nav.side {
+    position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w);
+    overflow-y:auto; background:var(--card); border-right:1px solid var(--border);
+    padding:1.2rem 1rem 2rem; font-size:.88rem;
+  }
+  nav.side .brand { font-weight:800; font-size:1.15rem; margin-bottom:.2rem; }
+  nav.side .brand span { color:var(--accent); }
+  nav.side .ver { color:var(--muted); margin-bottom:1rem; }
+  nav.side h5 { margin:1.1rem 0 .3rem; color:var(--muted);
+                text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
+  nav.side a { display:block; padding:.18rem .4rem; border-radius:6px; color:var(--fg); }
+  nav.side a:hover { background:var(--accent-soft); text-decoration:none; }
+  main { margin-left:var(--sidebar-w); max-width:900px; padding:2.5rem 2.2rem 5rem; }
+  @media (max-width:900px) {
+    nav.side { position:static; width:auto; border-right:none;
+               border-bottom:1px solid var(--border); }
+    main { margin-left:0; padding:1.5rem 1.2rem 4rem; }
+  }
+  h1 { font-size:1.9rem; margin:.2rem 0 .5rem; letter-spacing:-.02em; }
+  h2 { font-size:1.35rem; margin:2.6rem 0 .6rem; }
+  h3 { font-size:1.05rem; margin:1.6rem 0 .4rem; }
+  .muted { color:var(--muted); }
+  pre { background:var(--code-bg); color:var(--code-fg); border-radius:10px;
+        padding:.85rem 1.05rem; overflow-x:auto; font-size:.84rem; line-height:1.55; margin:.6rem 0; }
+  pre .c { color:#7d8da0; }
+  code { font-family:ui-monospace,"SF Mono",Consolas,monospace; }
+  p code, li code, td code { background:var(--card); border:1px solid var(--border);
+    border-radius:5px; padding:.05rem .35rem; font-size:.86em; }
+  table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }
+  th, td { text-align:left; padding:.5rem .65rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--muted); }
+  .cmd { background:var(--card); border:1px solid var(--border); border-radius:12px;
+         padding:1rem 1.2rem; margin:1.2rem 0; }
+  .cmd h3 { margin:0 0 .3rem; }
+  .cmd h3 code { color:var(--accent); background:none; border:none; padding:0; }
+  .mathbox { border-left:4px solid var(--accent); background:var(--card);
+             border-radius:6px; padding:.8rem 1.1rem; margin:1.2rem 0; }
+  .mathbox p { margin:.35rem 0; }
+  .loop { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; margin:1.2rem 0;
+          font-weight:600; font-size:.9rem; }
+  .loop .step { background:var(--accent-soft); color:var(--accent);
+    border:1px solid var(--accent); border-radius:999px; padding:.3rem .9rem; }
+  .loop .a { color:var(--muted); }
+  .verdict { display:inline-block; border-radius:6px; padding:.02rem .5rem;
+             font-weight:700; font-size:.85em; color:var(--bg); }
+  .v-ok { background:var(--accent); } .v-bad { background:var(--bad); }
+</style>
+</head>
+<body>
+<nav class="side">
+  <div class="brand">odd-<span>pilot</span> docs</div>
+  <div class="ver">campaign copilot</div>
+  <h5>Site</h5>
+  <a href="index.html">← Overview</a>
+  <a href="physcheck.html">physcheck: every rule</a>
+  <a href="findings.html">Violations in public suites</a>
+  <h5>odd-pilot</h5>
+  <a href="#idea">The idea</a>
+  <a href="#data">The three files you need</a>
+  <a href="#model">model — learn the real world</a>
+  <a href="#assess">assess — have we tested enough?</a>
+  <a href="#gaps">gaps — what is missing</a>
+  <a href="#plan">plan — generate the missing tests</a>
+  <a href="#report">report — the evidence document</a>
+  <a href="#conform">conform — inside your ODD?</a>
+  <a href="#loop">loop — run the whole cycle</a>
+  <a href="#defaults">Choosing the knobs</a>
+  <a href="#faq">Common questions</a>
+</nav>
+<main>
+
+<h1>odd-pilot<span class="muted"> — the campaign copilot, explained</span></h1>
+<p>physcheck answers <i>"is this scenario possible?"</i>. odd-pilot answers the
+campaign questions around it: <i>have we tested enough of the real world, what
+exactly is missing, and can the tool produce those missing tests itself?</i>
+It never touches a simulator — you keep executing tests however you do today;
+odd-pilot works on the files and logs around that.</p>
+
+<div class="loop">
+  <span class="step">lint</span><span class="a">→</span>
+  <span class="step">execute (your simulator)</span><span class="a">→</span>
+  <span class="step">assess</span><span class="a">→</span>
+  <span class="step">gaps</span><span class="a">→</span>
+  <span class="step">plan</span><span class="a">→</span>
+  <span class="step">report</span><span class="a">↻</span>
+</div>
+
+<h2 id="idea">The idea in one paragraph</h2>
+<p>Learn from real driving data how often each operating condition occurs —
+rainy nights, dry motorway afternoons, foggy mornings. Give every
+<b>combination of conditions</b> a share of real-world operation. A combination
+counts as <b>sufficiently tested</b> once your executed tests have accumulated
+enough hours in it — and "enough" is larger for combinations the real world
+offers more often. When the combinations you have covered add up to almost all
+of expected operation, testing is <b>adequate</b> and the campaign may stop —
+with a number you can defend in a safety case. Until then, the uncovered
+combinations are, precisely, the generator's to-do list.</p>
+
+<h2 id="data">The three files you need</h2>
+<table>
+<tr><th>File</th><th>What it is</th><th>Format</th></tr>
+<tr><td>Profiling data</td><td>Records of real operation — fleet logs, drive
+  recordings, even hourly weather observations for your region. One row per
+  observed situation.</td>
+  <td>CSV/XLSX; condition columns named <code>feature_*</code> (categorical — bin
+  continuous values)</td></tr>
+<tr><td>Run log</td><td>What you have executed so far. One row per test run,
+  appended as the campaign proceeds (<code>loop</code> appends automatically).</td>
+  <td>CSV; the same <code>feature_*</code> columns + <code>run_duration</code> in seconds</td></tr>
+<tr><td>Scenario template</td><td>One OpenSCENARIO file with your road, actors and
+  maneuvers, where the conditions are parameters. <code>plan</code> fills the
+  parameters per generated scenario.</td>
+  <td>.xosc with <code>ParameterDeclarations</code>; feature <code>feature_x</code> fills the
+  parameter named <code>x</code></td></tr>
+</table>
+<pre><code><span class="c"># profiling.csv — real operation, one row per observed hour/segment</span>
+feature_weather,feature_road,feature_time,run_duration
+rain,wetWithPuddles,night,3600
+dry,dry,day,3600
+...</code></pre>
+
+<div class="cmd" id="model">
+<h3><code>odd-pilot model fit</code> — learn how the real world behaves</h3>
+<p>Fits a Bayesian network over your <code>feature_*</code> columns: not just how often
+each condition occurs, but how they occur <b>together</b> (rain makes roads wet;
+night dims the light). The model refuses to save itself if it fails validation.</p>
+<pre><code>odd-pilot model fit --data profiling.csv -o world.bn --seed 7
+odd-pilot model info world.bn        <span class="c"># nodes, edges, fit quality</span></code></pre>
+<p class="muted">Optional: <code>--attribute-map map.yaml</code> binds feature columns to
+scenario attributes and enables physcheck's L6 realism warnings
+(<code>lint --model world.bn</code>).</p>
+</div>
+
+<div class="cmd" id="assess">
+<h3><code>odd-pilot assess</code> — have we tested enough?</h3>
+<pre><code>odd-pilot assess --model world.bn --log runs.csv --t 2 \
+    --alpha 0.05 --rho 0.01 --epsilon 0.05
+
+  t         F     eps   combos  insuff   covered  uncovered  verdict
+  2    299.57  0.0500      566     157    0.9606     0.0394  ADEQUATE</code></pre>
+<p>Reading the row: of 566 pairs of conditions carrying real-world mass, 157
+still lack exposure — but they hold only 3.9 % of expected operation, below
+the 5 % you allowed (ε). Verdict: <span class="verdict v-ok">ADEQUATE</span>.</p>
+<div class="mathbox">
+<p><b>The rule, gently.</b> For every combination c of t conditions:</p>
+<p>· <b>P̃(c)</b> — its share of real operation (estimated from the model);</p>
+<p>· <b>E(c)</b> — hours of your executed tests matching c (from the run log);</p>
+<p>· <b>required hours</b> E<sub>min</sub>(c) = −ln(α) · P̃(c) / ρ — enough exposure to
+bound c's undetected event rate below ρ events/hour with confidence 1−α;</p>
+<p>· c is <b>sufficient</b> when E(c) ≥ E<sub>min</sub>(c); the verdict is
+<b>ADEQUATE</b> when insufficient combinations hold less than ε of total
+operation. Adequacy is a <i>coverage</i> claim — failures you observed are
+triaged separately, never discharged by this number.</p>
+</div>
+<p>Useful extras: <code>--fail-if-inadequate</code> (exit 2 → a CI gate),
+<code>--sweep eps=0.01:0.10:0.01</code> (how sensitive is the verdict to ε),
+<code>--ledger ledger.csv</code> (the full per-combination table),
+<code>--json adequacy.json</code> (machine-readable, feeds <code>plan</code> and
+<code>report</code>).</p>
+</div>
+
+<div class="cmd" id="gaps">
+<h3><code>odd-pilot gaps</code> — what exactly is missing</h3>
+<pre><code>odd-pilot gaps --model world.bn --log runs.csv --t 2 -n 5
+
+t=2: 157 insufficient combinations, residual mass 0.0394 (showing top 5)
+  0.002981  feature_Distance=Near &amp; feature_NPC_Count=Sparse  [0.000h / 0.893h]
+  0.002471  feature_Distance=Near &amp; feature_Ego_V=Stopped     [0.010h / 0.740h]
+  ...</code></pre>
+<p>Ranked by how much real-world operation each gap holds — the top line is
+always "the most real-world-relevant thing you have not yet tested enough".
+The bracket shows accumulated vs required hours.</p>
+</div>
+
+<div class="cmd" id="plan">
+<h3><code>odd-pilot plan</code> — generate the missing tests</h3>
+<pre><code>odd-pilot assess ... --json adequacy.json
+odd-pilot plan --model world.bn -a adequacy.json -k 20 \
+    --template templates/junction.xosc -o batches/003/
+
+planned 20 scenario(s) -&gt; batches/003 (3 candidate(s) discarded by the physcheck gate)</code></pre>
+<p>For each gap, biggest first: condition the model on that combination and
+sample candidates — they hit the target condition while everything else stays
+naturalistic (conditioning on rain gives you wet roads for free). Pick a
+diverse set, fill your template's parameters, and <b>physcheck every file
+before it is written into the batch</b> — candidates that violate physics are
+discarded and replaced. A gap whose every candidate violates physics is
+reported <b>UNFILLABLE</b>, never silently dropped.</p>
+<p class="muted"><code>--rarity</code> flips the preference toward rare/extreme
+variants (criticality campaigns) — with the same physics gate, which matters
+precisely then. <code>--seed</code> makes batches reproducible;
+<code>--no-lint</code> disables the gate if you insist. Output:
+<code>plan.csv</code> (one row per scenario: target, conditions, file) + the
+ready-to-run <code>.xosc</code> files.</p>
+</div>
+
+<div class="cmd" id="report">
+<h3><code>odd-pilot report</code> — the evidence document</h3>
+<pre><code>odd-pilot lint suite/ --format sarif -o lint.sarif
+odd-pilot assess ... --json adequacy.json --ledger ledger.csv
+odd-pilot report -a adequacy.json --ledger ledger.csv --lint lint.sarif -o evidence.md</code></pre>
+<p>One Markdown artifact for the safety case: the verdict table with an
+explicit <b>STOP / CONTINUE</b> decision, the adequacy argument written out in
+ISO 21448 (SOTIF) terms, the scenario-validity summary from the lint, the
+per-combination exposure ledger, the ranked remaining gaps — and SHA-256
+fingerprints of every input, so the document is traceable evidence rather than
+a pretty printout. <code>--pdf</code> renders it via pandoc where available.</p>
+</div>
+
+<div class="cmd" id="conform">
+<h3><code>odd-pilot conform</code> — does the suite stay inside your ODD?</h3>
+<pre><code># odd.yaml — include/exclude conditions over scenario attributes
+odd:
+  name: urban-daytime
+  attributes:
+    env.temperature_k:  {include: {min: 263, max: 313}}
+    env.road.wetness:   {exclude: [highFlooded]}
+
+odd-pilot conform suite/ --odd odd.yaml
+
+suite/night_rain.xosc: OUT  (odd 'urban-daytime')
+    OUT         env.temperature_k = 250  [Init]</code></pre>
+<p>One verdict per scenario — <b>IN</b>, <b>OUT</b> (exercises operation the
+system is not declared for → exit 1), or <b>UNDECLARED</b> (the ODD constrains
+something the file does not specify, so conformance cannot be established).</p>
+</div>
+
+<div class="cmd" id="loop">
+<h3><code>odd-pilot loop</code> — the whole cycle, unattended</h3>
+<pre><code>odd-pilot loop --model world.bn --log runs.csv \
+    --template templates/junction.xosc \
+    --exec "./run_carla.sh {scenario}" --until-adequate --max-iter 10
+
+iteration 1: planned=10 executed=10 failed=0 uncovered=0.1841 -&gt; INADEQUATE
+iteration 2: planned=10 executed=10 failed=0 uncovered=0.0722 -&gt; INADEQUATE
+iteration 3: planned=10 executed=9  failed=1 uncovered=0.0413 -&gt; ADEQUATE
+loop finished: adequate after iteration 3</code></pre>
+<p>Your executor is any command; <code>{scenario}</code> is replaced per generated
+file. After each successful run, one row is appended to the run log. The
+contract, in full:</p>
+<ul>
+<li>Duration = your command's wall-clock time, <b>unless</b> it prints
+  <code>run_duration=&lt;seconds&gt;</code> on stdout — print the <i>simulated</i> time
+  there when the two differ.</li>
+<li>A non-zero exit (or <code>--timeout</code>) means the run earns <b>no exposure
+  credit</b> and is reported; if every execution in an iteration fails, the loop
+  aborts rather than burning iterations.</li>
+<li>Already adequate? The loop exits before touching your simulator.
+  With <code>--until-adequate</code>, the final exit code is the campaign gate:
+  0 adequate, 2 not.</li>
+</ul>
+</div>
+
+<h2 id="defaults">Choosing the knobs</h2>
+<table>
+<tr><th>Knob</th><th>Meaning</th><th>Guidance</th></tr>
+<tr><td><code>--t</code></td><td>Size of condition combinations (2 = pairs).</td>
+    <td>Start with 2; add 3 when pairs certify. Higher t fragments the mass into
+    many small combinations.</td></tr>
+<tr><td><code>--alpha</code>, <code>--rho</code></td><td>Confidence (1−α) and risk budget
+    (events/hour) behind the required-hours formula.</td>
+    <td>Defaults 0.05 / 0.01. They act only through F = −ln(α)/ρ, so α is a weak
+    lever — set ρ from your safety target and leave α alone.</td></tr>
+<tr><td><code>--epsilon</code></td><td>How much real-world mass may remain
+    insufficiently tested.</td>
+    <td>The well-behaved knob. Use a <i>shrinking</i> per-t schedule —
+    <code>--t 2 3 4 --epsilon 0.05 0.03 0.02</code> — because mass fragments as t
+    grows.</td></tr>
+<tr><td><code>--n-samples</code></td><td>Model samples behind the mass estimate.</td>
+    <td>Default 50,000 is fine; results are seeded and reproducible with
+    <code>--seed</code>.</td></tr>
+</table>
+
+<h2 id="faq">Common questions</h2>
+<table>
+<tr><td><b>Does odd-pilot run my simulator?</b></td>
+    <td>No — never. <code>loop</code> wraps whatever command you give it; everything
+    else works purely on files and logs.</td></tr>
+<tr><td><b>I have no fleet data. Can I still use it?</b></td>
+    <td>Yes: any tabular record of real operating conditions works — public
+    weather observations for your deployment region are a legitimate start for
+    the environmental part of the model.</td></tr>
+<tr><td><b>What does ADEQUATE actually claim?</b></td>
+    <td>That the combinations you tested sufficiently carry ≥ 1−ε of expected
+    operation — a <i>coverage</i> claim usable in a SOTIF argument. It is not a
+    claim that no faults exist; observed failures are triaged separately.</td></tr>
+<tr><td><b>Can I use my old research models?</b></td>
+    <td>Model files from the original PWCC research code load as-is.</td></tr>
+<tr><td><b>Where is the methodology from?</b></td>
+    <td>The assessment implements the PWCC probability-weighted coverage
+    methodology (paper in submission); the implementation here is
+    cross-validated against the study's reference code — identical verdicts,
+    covered mass within Monte-Carlo tolerance.</td></tr>
+</table>
+
+<footer style="border-top:1px solid var(--border); margin-top:3rem; padding-top:1.2rem;"
+        class="muted">
+<p><a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a> ·
+<a href="physcheck.html">physcheck rule reference</a> ·
+<a href="findings.html">violations in public suites</a> · Apache-2.0.</p>
+</footer>
+</main>
+</body>
+</html>
