@@ -238,6 +238,74 @@ class TrajectoryFollow:
 
 
 @dataclass
+class ConditionIR:
+    """One storyboard Condition, normalised for static analysis (L4).
+
+    ``kind``: "simulation_time" | "parameter" | "other". Only the fields
+    meaningful for the kind are set.
+    """
+
+    kind: str
+    #: Condition@delay: seconds between the condition holding and it firing.
+    delay_s: float = 0.0
+    #: SimulationTimeCondition: value (s) and rule (greaterThan/lessThan/...).
+    time_s: float | None = None
+    rule: str | None = None
+    #: ParameterCondition: referenced parameter and comparison value.
+    parameter_ref: str | None = None
+    compare_value: str | None = None
+    label: str = ""
+
+
+@dataclass
+class TriggerIR:
+    """Condition groups: OR over groups, AND within a group."""
+
+    groups: list[list[ConditionIR]] = field(default_factory=list)
+
+    @property
+    def conditions(self) -> list[ConditionIR]:
+        return [c for group in self.groups for c in group]
+
+
+@dataclass
+class EventIR:
+    name: str
+    priority: str | None = None
+    maximum_execution_count: int | None = None
+    start_trigger: TriggerIR | None = None
+    #: (action name, control channel): "longitudinal" | "lateral" |
+    #: "teleport" | "routing" | "other".
+    actions: list[tuple[str, str]] = field(default_factory=list)
+    label: str = ""
+
+
+@dataclass
+class ManeuverGroupIR:
+    name: str
+    actors: list[str] = field(default_factory=list)
+    select_triggering_entities: bool = False
+    maximum_execution_count: int | None = None
+    events: list[EventIR] = field(default_factory=list)
+    label: str = ""
+
+
+@dataclass
+class ActIR:
+    name: str
+    start_trigger: TriggerIR | None = None
+    stop_trigger: TriggerIR | None = None
+    groups: list[ManeuverGroupIR] = field(default_factory=list)
+    label: str = ""
+
+
+@dataclass
+class StoryboardIR:
+    acts: list[ActIR] = field(default_factory=list)
+    stop_trigger: TriggerIR | None = None
+
+
+@dataclass
 class Scenario:
     source_path: str = "<string>"
     #: Root element kind: "scenario" | "catalog" | "parameter_value_distribution".
@@ -250,6 +318,8 @@ class Scenario:
     speed_commands: list[SpeedCommand] = field(default_factory=list)
     lane_changes: list[LaneChange] = field(default_factory=list)
     trajectories: list[TrajectoryFollow] = field(default_factory=list)
+    #: Storyboard control structure (acts, events, triggers) for L4.
+    storyboard: StoryboardIR | None = None
     #: Every Position occurrence with provenance (teleports, route waypoints, ...).
     position_uses: list[PositionUse] = field(default_factory=list)
     routes: list[RouteAssignment] = field(default_factory=list)

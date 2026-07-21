@@ -58,6 +58,11 @@ def _build_parser() -> _Parser:
     )
     lint.add_argument("--odd", dest="odd_file",
                       help="ODD definition YAML for L5 conformance (enables L5)")
+    lint.add_argument("--model", dest="model_file",
+                      help="operational model (.bn, odd-pilot) for L6 statistical "
+                           "plausibility (enables L6; needs odd-pilot installed)")
+    lint.add_argument("--l6-quantile", type=float, default=0.01,
+                      help="quantile floor for L6 never-observed warnings")
     lint.add_argument("--rules", action="append", default=[], help="additional rule pack YAML")
     lint.add_argument("--layers", default=_DEFAULT_LAYERS, help="comma list (default L0,L1)")
     lint.add_argument(
@@ -124,11 +129,29 @@ def _cmd_lint(args: argparse.Namespace) -> int:
 
         odd_def = load_odd(args.odd_file)
         layers.add("L5")
+    scorer = None
+    if args.model_file:
+        try:
+            from oddpilot.statistical import (  # type: ignore[import-not-found]
+                scorer_for,
+            )
+        except ImportError:
+            print(
+                "physcheck: --model (L6) needs the odd-pilot package installed",
+                file=sys.stderr,
+            )
+            return 3
+        try:
+            scorer = scorer_for(args.model_file)
+        except (OSError, ValueError) as exc:
+            print(f"physcheck: cannot use model for L6: {exc}", file=sys.stderr)
+            return 3
+        layers.add("L6")
     unknown = layers - {f"L{i}" for i in range(7)}
     if unknown:
         print(f"physcheck: unknown layers: {sorted(unknown)}", file=sys.stderr)
         return 3
-    not_shipped = layers - {"L0", "L1", "L2", "L3", "L5"}
+    not_shipped = layers - {"L0", "L1", "L2", "L3", "L4", "L5", "L6"}
     if not_shipped:
         print(
             f"physcheck: note: layers {sorted(not_shipped)} have no rules yet",
@@ -162,7 +185,10 @@ def _cmd_lint(args: argparse.Namespace) -> int:
             if xodr_map is None:
                 unmapped += 1
         results.append(
-            lint_scenario(scenario, rules, layers, xodr_map=xodr_map, odd=odd_def)
+            lint_scenario(
+                scenario, rules, layers, xodr_map=xodr_map, odd=odd_def,
+                scorer=scorer, l6_quantile=args.l6_quantile,
+            )
         )
     if unmapped:
         print(

@@ -14,12 +14,16 @@ from pathlib import Path
 
 from physcheck.engine.predicate import Predicate
 from physcheck.ir.model import (
+    ActIR,
     BoundingBox,
+    ConditionIR,
     Entity,
     Environment,
+    EventIR,
     FileHeader,
     Fog,
     LaneChange,
+    ManeuverGroupIR,
     ParseIssue,
     Performance,
     Position,
@@ -29,10 +33,12 @@ from physcheck.ir.model import (
     RouteAssignment,
     Scenario,
     SpeedCommand,
+    StoryboardIR,
     Sun,
     TimeOfDay,
     TrajectoryFollow,
     TrajVertex,
+    TriggerIR,
     Weather,
     Wind,
 )
@@ -423,6 +429,131 @@ def _parse_storyboard(storyboard: ET.Element, ctx: _Ctx) -> None:
                             PositionUse(position=pos, entity=actor, label=label)
                         )
             _parse_routing_actions(group, actors[0] if actors else "", label, ctx)
+
+    sc.storyboard = _parse_storyboard_structure(storyboard, ctx)
+
+
+#: Action tag -> control channel for L4 conflict analysis.
+_ACTION_CHANNELS = {
+    "SpeedAction": "longitudinal",
+    "SpeedProfileAction": "longitudinal",
+    "LongitudinalDistanceAction": "longitudinal",
+    "LaneChangeAction": "lateral",
+    "LaneOffsetAction": "lateral",
+    "LateralDistanceAction": "lateral",
+    "TeleportAction": "teleport",
+    "AssignRouteAction": "routing",
+    "FollowTrajectoryAction": "routing",
+    "AcquirePositionAction": "routing",
+}
+
+
+def _parse_condition(cond: ET.Element, ctx: _Ctx, label: str) -> ConditionIR:
+    where = f"{label}/Condition[{cond.get('name', '')}]"
+    delay = ctx.get_float(cond, "delay", where) or 0.0
+    sim = cond.find(".//SimulationTimeCondition")
+    if sim is not None:
+        return ConditionIR(
+            kind="simulation_time",
+            delay_s=delay,
+            time_s=ctx.get_float(sim, "value", where),
+            rule=ctx.get_str(sim, "rule", where),
+            label=cond.get("name", ""),
+        )
+    par = cond.find(".//ParameterCondition")
+    if par is not None:
+        return ConditionIR(
+            kind="parameter",
+            delay_s=delay,
+            parameter_ref=par.get("parameterRef"),
+            rule=ctx.get_str(par, "rule", where),
+            compare_value=par.get("value"),
+            label=cond.get("name", ""),
+        )
+    return ConditionIR(kind="other", delay_s=delay, label=cond.get("name", ""))
+
+
+def _parse_trigger(elem: ET.Element | None, ctx: _Ctx, label: str) -> TriggerIR | None:
+    if elem is None:
+        return None
+    trigger = TriggerIR()
+    for group in elem.findall("ConditionGroup"):
+        trigger.groups.append(
+            [_parse_condition(c, ctx, label) for c in group.findall("Condition")]
+        )
+    return trigger
+
+
+def _int_attr(elem: ET.Element, attr: str, ctx: _Ctx, where: str) -> int | None:
+    raw = ctx.get_float(elem, attr, where)
+    return None if raw is None else int(raw)
+
+
+def _parse_storyboard_structure(storyboard: ET.Element, ctx: _Ctx) -> StoryboardIR:
+    sb = StoryboardIR(
+        stop_trigger=_parse_trigger(
+            storyboard.find("StopTrigger"), ctx, "Storyboard/StopTrigger"
+        )
+    )
+    for story in storyboard.findall("Story"):
+        story_name = story.get("name", "")
+        for act in story.findall("Act"):
+            act_label = f"Story[{story_name}]/Act[{act.get('name', '')}]"
+            act_ir = ActIR(
+                name=act.get("name", ""),
+                start_trigger=_parse_trigger(act.find("StartTrigger"), ctx, act_label),
+                stop_trigger=_parse_trigger(act.find("StopTrigger"), ctx, act_label),
+                label=act_label,
+            )
+            for group in act.findall("ManeuverGroup"):
+                group_label = f"{act_label}/{group.get('name', '')}"
+                actors_elem = group.find("Actors")
+                group_ir = ManeuverGroupIR(
+                    name=group.get("name", ""),
+                    actors=[
+                        ctx.resolve(e.get("entityRef"), group_label) or ""
+                        for e in (
+                            actors_elem.findall("EntityRef")
+                            if actors_elem is not None else []
+                        )
+                    ],
+                    select_triggering_entities=(
+                        actors_elem is not None
+                        and (actors_elem.get("selectTriggeringEntities") or "")
+                        .lower() == "true"
+                    ),
+                    maximum_execution_count=_int_attr(
+                        group, "maximumExecutionCount", ctx, group_label
+                    ),
+                    label=group_label,
+                )
+                for event in group.iter("Event"):
+                    event_label = f"{group_label}/Event[{event.get('name', '')}]"
+                    event_ir = EventIR(
+                        name=event.get("name", ""),
+                        priority=event.get("priority"),
+                        maximum_execution_count=_int_attr(
+                            event, "maximumExecutionCount", ctx, event_label
+                        ),
+                        start_trigger=_parse_trigger(
+                            event.find("StartTrigger"), ctx, event_label
+                        ),
+                        label=event_label,
+                    )
+                    for action in event.findall("Action"):
+                        if action.find(".//PrivateAction") is None:
+                            channel = "global"  # global/user-defined: no actor
+                        else:
+                            channel = "other"
+                            for tag, chan in _ACTION_CHANNELS.items():
+                                if action.find(f".//{tag}") is not None:
+                                    channel = chan
+                                    break
+                        event_ir.actions.append((action.get("name", ""), channel))
+                    group_ir.events.append(event_ir)
+                act_ir.groups.append(group_ir)
+            sb.acts.append(act_ir)
+    return sb
 
 
 def _find_entity(sc: Scenario, name: str) -> Entity | None:

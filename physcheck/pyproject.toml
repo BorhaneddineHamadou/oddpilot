@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "physcheck"
-version = "0.4.0"
+version = "0.5.0"
 description = "Layered physical-plausibility linter for ASAM OpenSCENARIO 1.x scenarios, with a fully cited rule catalog"
 readme = "README.md"
 requires-python = ">=3.10"

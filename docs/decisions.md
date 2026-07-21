@@ -267,3 +267,28 @@ error. `entity.*` constraints evaluate per concrete entity; all others per decla
 environment state. The dialect deliberately targets the SEMANTICS of ASAM OpenODD
 1.0.0 rather than claiming schema conformance — a converter from the ASAM YAML mapping
 can be layered on once the spec artifact is available for field-name validation.
+
+**D35 — L4 conservative subset (STB-001..007).** Storyboard static analysis fires only
+on statically certain defects. Trigger time bounds are computed solely from
+SimulationTimeConditions with greaterThan/greaterOrEqual rules PLUS the condition's
+`delay` attribute (a stop condition value=120 delay=1 fires at 121 — ignoring delay
+produced a false positive on scenario_runner's Slalom.xosc during verification):
+earliest-fire = min over condition groups of max in-group bound (OR of ANDs);
+certain-stop needs a group made solely of such conditions. STB-005 (no actors) counts
+only events with PrivateActions — groups holding only GlobalActions (weather,
+time-of-day) legitimately need no actors (esmini light_state.xosc, found during
+verification). Suite scan: esmini 1 true finding (parking_demo: two simultaneous
+longitudinal PrivateActions in one parallel event), scenario_runner 3 warnings (no
+StopTrigger), ALKS clean.
+
+**D36 — L6 statistical plausibility (STA-001).** physcheck stays model-free: L6 takes
+an injected scorer callable (attribute view -> (log p, empirical quantile) | None);
+odd-pilot builds it from the operational BN (oddpilot.statistical). The model must
+carry an attribute_map (feature column -> attribute-view name + optional bins, stored
+by `model fit --attribute-map`) and a reference score sample (sorted joint log-probs
+of 2,000 forward samples, computed at fit time) so the quantile is judged against the
+model's OWN score distribution, deterministically. Assignments using states absent
+from the training data score -inf/quantile 0 (BDeu smooths observed states only).
+STA-001 is warning severity by design: statistical rarity never blocks execution.
+`physcheck lint --model` imports odd-pilot lazily and exits 3 with a clear message
+when it is not installed — the dependency direction stays physcheck <- odd-pilot.

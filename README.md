@@ -42,6 +42,8 @@ physcheck lint examples/                     # lint a directory of .xosc files (
 physcheck lint suite/ --map town04.xodr      # enable L2 map cross-checks + L3 kinematics
 physcheck lint suite/ --layers L0,L1,L2,L3   # maps via each scenario's RoadNetwork/LogicFile
 physcheck lint suite/ --odd odd.yaml         # L5 ODD conformance (in/out/undeclared)
+physcheck lint suite/ --layers L0,L1,L4      # L4 storyboard static analysis
+odd-pilot lint suite/ --layers L0,L1,L6 --model odd.bn   # L6 statistical plausibility
 physcheck lint s.xosc --format sarif -o l.sarif   # CI-ready output
 physcheck lint suite/ --fail-on error        # exit 1 on any error → CI quality gate
 physcheck lint s.xosc --explain ATM-001      # rule text, citation, offending values
@@ -78,9 +80,9 @@ road-user biomechanics, regulations). The research behind it is documented in:
 | L1 | Environmental & physical rules (researched, cited catalog) | ✅ v0.1 |
 | L2 | Map cross-checks (OpenDRIVE: roads/lanes exist, drivable spawns, interpenetration, route connectivity, speed limits) + `solar_geo` ephemeris pack | ✅ v0.2 |
 | L3 | Kinematic & dynamic feasibility: friction circle v²≤µgr vs map curvature with µ from the L1 environment, lane-change lateral acceleration, trajectory continuity/teleports, VRU sustained speeds | ✅ v0.3 |
-| L4 | Storyboard logic (static analysis) | roadmap |
+| L4 | Storyboard logic: dead triggers, empty act intervals, conflicting simultaneous actions per control channel, actor-less groups, zero execution counts, non-terminating storyboards, type-incompatible comparisons | ✅ v0.5 |
 | L5 | ODD conformance: scenario attributes vs a YAML ODD definition (OpenODD include/exclude semantics); verdicts in / out / undeclared | ✅ v0.4 |
-| L6 | Statistical plausibility (learned operational model) | roadmap |
+| L6 | Statistical plausibility: scenario scored under the learned operational model (odd-pilot BN); never-observed combinations below a quantile floor flagged as warnings — never blocks | ✅ v0.5 |
 
 Map-independent kinematic bounds (VRU speeds, performance envelopes) are checkable from the
 `.xosc` alone and are shipped in v0.1 as part of the researched catalog.

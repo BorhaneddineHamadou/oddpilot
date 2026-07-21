@@ -26,6 +26,15 @@ physcheck rules show ATM-001
   scenario's `RoadNetwork/LogicFile`.
 - **Solar ephemeris** (`physcheck.ephemeris`): dependency-free NOAA/Meeus solar position
   (~0.01°), used by the L2 `solar_geo` rules (GEO-001…006).
+- **L4 storyboard logic** (`l4_storyboard`, STB-001…007): static analysis of the
+  control structure — dead triggers (delay-aware simulation-time bounds), empty act
+  intervals, conflicting simultaneous actions on one control channel, actor-less
+  groups with private actions, zero execution counts, missing termination,
+  type-incompatible parameter comparisons (D35).
+- **L6 statistical plausibility** (`l6_statistical`, STA-001): scenarios scored
+  under an injected operational-model scorer (odd-pilot provides one from its BN);
+  combinations below a configurable quantile of real operation are flagged
+  `warning: never-observed` — never blocks execution (D36).
 - **L5 ODD conformance** (`physcheck.odd` + `l5_odd`, ODD-000…002): scenario
   attributes against a YAML ODD definition with OpenODD include/exclude condition
   semantics — out-of-ODD is an error, ODD-constrained-but-undeclared a warning (D34).

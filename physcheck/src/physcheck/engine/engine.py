@@ -11,7 +11,9 @@ from physcheck.engine.plugins.l1_cross import cross_findings
 from physcheck.engine.plugins.l2_map import map_findings
 from physcheck.engine.plugins.l2_solar_geo import solar_geo_findings
 from physcheck.engine.plugins.l3_kinematics import kinematic_findings
+from physcheck.engine.plugins.l4_storyboard import storyboard_findings
 from physcheck.engine.plugins.l5_odd import odd_findings
+from physcheck.engine.plugins.l6_statistical import Scorer, statistical_findings
 from physcheck.engine.predicate import MissingAttribute, PredicateError
 from physcheck.ir.attributes import Attrs, entity_contexts, scenario_contexts
 from physcheck.ir.model import Scenario
@@ -68,6 +70,8 @@ def lint_scenario(
     layers: set[str],
     xodr_map: XodrMap | None = None,
     odd: OddDefinition | None = None,
+    scorer: Scorer | None = None,
+    l6_quantile: float = 0.01,
 ) -> LintResult:
     result = LintResult(file=scenario.source_path, document_kind=scenario.document_kind)
     if "L0" in layers:
@@ -81,8 +85,12 @@ def lint_scenario(
         result.findings.extend(solar_geo_findings(scenario, xodr_map))
     if "L3" in layers:
         result.findings.extend(kinematic_findings(scenario, xodr_map))
+    if "L4" in layers:
+        result.findings.extend(storyboard_findings(scenario))
     if "L5" in layers and odd is not None:
         result.findings.extend(odd_findings(scenario, odd))
+    if "L6" in layers and scorer is not None:
+        result.findings.extend(statistical_findings(scenario, scorer, l6_quantile))
 
     active = [r for r in rules if r.layer in layers]
     contexts_by_scope = {

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "odd-pilot"
-version = "0.5.0"
+version = "0.6.0"
 description = "ODD-aware campaign copilot for scenario-based testing of ADS: lint (physcheck), learned operational model, PWCC adequacy assessment, coverage gaps, gap-targeted generation, SOTIF-style evidence reports, loop orchestration, ODD conformance"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,5 +38,5 @@ python_version = "3.10"
 warn_unused_ignores = false
 
 [[tool.mypy.overrides]]
-module = ["pgmpy.*", "pandas.*"]
+module = ["pgmpy.*", "pandas.*", "yaml.*"]
 ignore_missing_imports = true

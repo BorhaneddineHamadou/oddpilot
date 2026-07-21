@@ -115,6 +115,7 @@ def fit(
     n_restarts: int = 3,
     ess: float = 5.0,
     seed: int | None = None,
+    attribute_map: dict[str, Any] | None = None,
 ) -> OperationalModel:
     """Learn structure + parameters and return a validated OperationalModel.
 
@@ -193,7 +194,19 @@ def fit(
         "edges": sorted((str(a), str(b)) for a, b in bn.edges()),
         **validation,
     }
-    return OperationalModel(bn=bn, feature_cols=list(nodes), meta=meta)
+    model = OperationalModel(bn=bn, feature_cols=list(nodes), meta=meta)
+    if attribute_map is not None:
+        missing = [f for f in attribute_map if f not in nodes]
+        if missing:
+            raise ValueError(
+                f"attribute_map references feature column(s) not in the "
+                f"model: {missing}"
+            )
+        from oddpilot.statistical import reference_logps
+
+        meta["attribute_map"] = attribute_map
+        meta["reference_logps"] = reference_logps(model, seed=seed)
+    return model
 
 
 def _validate(

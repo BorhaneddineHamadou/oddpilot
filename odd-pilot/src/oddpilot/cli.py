@@ -55,6 +55,11 @@ def _cmd_model(args: argparse.Namespace) -> int:
 
     if args.model_command == "fit":
         df = _read_table(args.data)
+        attribute_map = None
+        if args.attribute_map is not None:
+            import yaml
+
+            attribute_map = yaml.safe_load(args.attribute_map.read_text())
         model = opmodel.fit(
             df,
             scoring=args.scoring,
@@ -62,6 +67,7 @@ def _cmd_model(args: argparse.Namespace) -> int:
             n_restarts=args.restarts,
             ess=args.ess,
             seed=args.seed,
+            attribute_map=attribute_map,
         )
         model.save(args.output)
         meta = model.meta
@@ -420,6 +426,9 @@ def build_parser() -> argparse.ArgumentParser:
     fit.add_argument("--ess", type=float, default=5.0,
                      help="BDeu equivalent sample size (smoothing)")
     fit.add_argument("--seed", type=int, default=None)
+    fit.add_argument("--attribute-map", type=Path, default=None,
+                     help="YAML binding feature columns to physcheck attribute "
+                          "names (+bins); stored in the model, enables L6")
     info = model_sub.add_parser("info", help="show a saved model's metadata")
     info.add_argument("model_file", type=Path)
 
