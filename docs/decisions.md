@@ -188,3 +188,70 @@ a car via RelativeObjectPosition). Entities placed at the SAME absolute pose rem
 flagged (esmini trailers.xosc stacks tractor+trailers; the hitch coupling that
 un-overlaps them is engine-side, invisible at OSC level — physically impossible as
 declared, cf. the engine-coupling vacuity discussion in catalog_report).
+
+**D28 — Trajectory IR scope (v0.3).** `FollowTrajectoryAction` Polyline vertices are
+captured as float-only `TrajVertex` records (time, x, y, z), never as
+Position/PositionUse: a replayed recording carries 10^5-10^6 vertices — they are motion
+samples, not placement declarations, so L2 spawn/interpenetration semantics do not
+apply to them and memory stays bounded. Non-world vertices are counted
+(`total_vertices`) but not kept; Clothoid/Nurbs shapes are recorded by name and skipped.
+Inline `Trajectory` (OSC 1.0), `TrajectoryRef` (>= 1.1) and `CatalogReference`
+trajectories are all resolved.
+
+**D29 — Effective friction ceiling (DYN rules).** L3 composes with the L1 environment
+via an UPPER bound of plausible peak tire-road friction: declared
+`frictionScaleFactor` × 0.9 × 4/3 (FRI-013's convention and tolerance), else a generous
+class ceiling from the declared state — dry 1.2, moist 1.0, wetWithPuddles 0.9,
+lowFlooded 0.7, highFlooded 0.4, falling snow 0.5, freezing+wet (ice) 0.35 (top of the
+published ranges: Wallman & Åström VTI 911A; Bosch handbook p. 330). With several
+environment states the MOST favourable is used; with none, dry. Exceeding
+mu_ceiling × g is therefore certainly impossible on the declared surface — the checks
+under-report rather than guess.
+
+**D30 — Lane-change lateral acceleration (DYN-002).** Peak lateral acceleration of the
+sinusoidal lateral profile y(t) = w/2·(1−cos(πt/T)): a_peak = wπ²/(2T²), with w the
+widest driving-lane width at the entity's spawn (map available) else 3.5 m, and T the
+commanded duration — a distance-dimension lane change is converted with the entity's
+MINIMUM commanded speed (longest plausible duration; conservative). Fires at
+a_peak > mu_ceiling·g·1.2. Complements KIN-021/022, which bound the duration absolutely
+without surface or width knowledge.
+
+**D31 — Trajectory feasibility statistics (DYN-004..007).** Speeds and accelerations
+for DYN-006 (friction circle, sqrt(a_lat²+a_long²) > mu·g·1.35) are estimated over a
+>= 0.4 s window on each side of a vertex (path length / elapsed time, curvature from
+the window endpoints), never from adjacent raw samples: recorded corpora quantise
+positions (a 0.1 m grid at 25 Hz was measured in corner_case_ndd), and
+adjacent-sample differencing turns that grid into +-62 m/s² of phantom acceleration,
+while the window bounds the quantisation error to ~1 m/s². Sparse keyframe
+trajectories (local dt >= window) resolve to their raw segments. On top of the
+window, DYN-006 requires TWO consecutive violating vertices with mid-dt in
+[0.02 s, 10 s]. DYN-005 deliberately stays per-raw-segment (a declared teleport IS an
+instantaneous jump; its thresholds sit far above quantisation noise); segments with
+dt < 1 ms are treated as unmeasurable (None), not as infinite speed. DYN-006 applies to vehicles only (tire traction physics; legs/pedals
+excluded). DYN-005 reuses the L1 class record ceilings (vehicle 140, bicycle 39,
+pedestrian 12.5 m/s); a violating segment is a teleport, reported once per trajectory
+at its worst segment. DYN-007 (warning) bounds SUSTAINED VRU speed — max windowed
+average over ~30 s (>= 80% of the window observed), pedestrian 6.0 m/s (marathon WR
+pace 5.83), bicycle 16.0 m/s (UCI hour record 15.8) — on trajectories >= 10 s. After a
+DYN-004 time-axis violation the remaining trajectory checks are suppressed (speeds are
+meaningless on a broken time axis).
+
+**D32 — DYN-001 trusts declared positions only.** The curve-speed check runs only for
+RoadPosition/LanePosition spawns (explicit roadId). World positions are NOT projected
+onto the nearest road: at junctions, short corner-arc roads (r ~4-9 m) overlap the
+through path, and nearest-reference-line projection routinely assigns a
+straight-through vehicle to a curved road it never drives — verified on SCTrans's
+converted inD intersection maps, where projection produced 69 spurious curve-speed
+findings across 57 files (benchmark v0.3.0 triage). Declared road/lane spawns carry
+the file's own claim about which road the vehicle occupies, which is the only claim
+v² > mu·g·r can safely refute.
+
+**D33 — Teleport segments are data breaks.** A raw trajectory segment whose implied
+speed exceeds the class record ceiling is DYN-005's finding — an impossible position
+jump. Downstream kinematic statistics (DYN-006 friction circle, DYN-007 sustained
+speed) split the trajectory at such segments and analyse each run separately:
+estimation windows straddling the jump would otherwise re-report the same single
+defect as phantom sustained acceleration (observed with corner_case_ndd's
+placeholder-first-frame exports). Instantaneous speed *steps* below the teleport
+ceiling (e.g. DLR-UT track re-associations, Δv 7 m/s in one 50 ms sample) are NOT
+breaks — they genuinely violate the friction circle and stay DYN-006 findings.

@@ -205,6 +205,38 @@ class LaneChange:
     label: str = ""
 
 
+@dataclass(slots=True)
+class TrajVertex:
+    """One world-frame Polyline vertex of a followed trajectory.
+
+    Kept deliberately small (slots, floats only): real-data corpora replay
+    recorded traffic with 10^5-10^6 vertices per file.
+    """
+
+    time_s: float | None
+    x: float
+    y: float
+    z: float | None = None
+
+
+@dataclass
+class TrajectoryFollow:
+    """A FollowTrajectoryAction: the motion an entity is declared to perform.
+
+    Only world-position Polyline vertices are retained (``vertices``);
+    ``total_vertices`` counts every vertex of the shape so rules can tell how
+    much of the trajectory they actually saw. Non-Polyline shapes (Clothoid,
+    Nurbs) set ``shape`` accordingly and carry no vertices.
+    """
+
+    entity: str
+    label: str = ""
+    #: "polyline" | "clothoid" | "nurbs" | "unknown"
+    shape: str = "polyline"
+    vertices: list[TrajVertex] = field(default_factory=list)
+    total_vertices: int = 0
+
+
 @dataclass
 class Scenario:
     source_path: str = "<string>"
@@ -217,6 +249,7 @@ class Scenario:
     environments: list[Environment] = field(default_factory=list)
     speed_commands: list[SpeedCommand] = field(default_factory=list)
     lane_changes: list[LaneChange] = field(default_factory=list)
+    trajectories: list[TrajectoryFollow] = field(default_factory=list)
     #: Every Position occurrence with provenance (teleports, route waypoints, ...).
     position_uses: list[PositionUse] = field(default_factory=list)
     routes: list[RouteAssignment] = field(default_factory=list)

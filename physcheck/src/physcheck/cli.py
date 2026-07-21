@@ -53,8 +53,8 @@ def _build_parser() -> _Parser:
     lint.add_argument(
         "--map",
         dest="map_file",
-        help="OpenDRIVE map for L2 cross-checks (enables L2; without --map, L2 "
-        "resolves each scenario's RoadNetwork/LogicFile)",
+        help="OpenDRIVE map for L2/L3 cross-checks (enables L2+L3; without --map, "
+        "L2/L3 resolve each scenario's RoadNetwork/LogicFile)",
     )
     lint.add_argument("--odd", dest="odd_file", help="OpenODD definition (L5, not in v0.1)")
     lint.add_argument("--rules", action="append", default=[], help="additional rule pack YAML")
@@ -119,12 +119,12 @@ def _cmd_lint(args: argparse.Namespace) -> int:
 
     layers = {part.strip() for part in args.layers.split(",") if part.strip()}
     if args.map_file:
-        layers.add("L2")
+        layers.update(("L2", "L3"))
     unknown = layers - {f"L{i}" for i in range(7)}
     if unknown:
         print(f"physcheck: unknown layers: {sorted(unknown)}", file=sys.stderr)
         return 3
-    not_shipped = layers - {"L0", "L1", "L2"}
+    not_shipped = layers - {"L0", "L1", "L2", "L3"}
     if not_shipped:
         print(
             f"physcheck: note: layers {sorted(not_shipped)} have no rules yet",
@@ -153,15 +153,16 @@ def _cmd_lint(args: argparse.Namespace) -> int:
     for path in files:
         scenario = parse_file(path)
         xodr_map = None
-        if "L2" in layers:
+        if "L2" in layers or "L3" in layers:
             xodr_map = _map_for(scenario, path, args.map_file, map_cache)
             if xodr_map is None:
                 unmapped += 1
         results.append(lint_scenario(scenario, rules, layers, xodr_map=xodr_map))
     if unmapped:
         print(
-            f"physcheck: note: L2 skipped for {unmapped} file(s) with no resolvable "
-            "OpenDRIVE map (pass --map or declare RoadNetwork/LogicFile)",
+            f"physcheck: note: map cross-checks skipped for {unmapped} file(s) with "
+            "no resolvable OpenDRIVE map (pass --map or declare RoadNetwork/"
+            "LogicFile); map-free L3 rules still ran",
             file=sys.stderr,
         )
 

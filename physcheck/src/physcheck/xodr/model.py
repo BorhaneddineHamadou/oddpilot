@@ -265,6 +265,28 @@ class Road:
         dh = math.atan2(math.sin(h1 - h0), math.cos(h1 - h0))
         return (x0 + f * (x1 - x0), y0 + f * (y1 - y0), h0 + f * dh)
 
+    def curvature_at(self, s: float) -> float | None:
+        """|curvature| of the reference line at arc length s (1/m), from the
+        heading difference of the surrounding ~0.5 m samples — uniform across
+        line/arc/spiral/poly geometries."""
+        pts = self.samples()
+        if len(pts) < 2:
+            return None
+        s = min(max(s, pts[0][0]), pts[-1][0])
+        lo, hi = 0, len(pts) - 1
+        while lo + 1 < hi:
+            mid = (lo + hi) // 2
+            if pts[mid][0] <= s:
+                lo = mid
+            else:
+                hi = mid
+        s0, _x0, _y0, h0 = pts[lo]
+        s1, _x1, _y1, h1 = pts[hi]
+        if s1 <= s0:
+            return None
+        dh = math.atan2(math.sin(h1 - h0), math.cos(h1 - h0))
+        return abs(dh / (s1 - s0))
+
     # -- lanes -------------------------------------------------------------
     def section_at(self, s: float) -> LaneSection | None:
         chosen: LaneSection | None = None

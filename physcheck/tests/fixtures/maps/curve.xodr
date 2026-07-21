@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One quarter-circle rural road, radius 50 m (arc curvature 0.02), for L3
+     curve-speed tests. Lane -1 driving (3.5 m). -->
+<OpenDRIVE>
+  <header revMajor="1" revMinor="4" name="curve" north="100" south="-10" east="100" west="-10"/>
+  <road name="Bend" length="78.5398" id="C1" junction="-1">
+    <type s="0.0" type="rural">
+      <speed max="100" unit="km/h"/>
+    </type>
+    <planView>
+      <geometry s="0.0" x="0.0" y="0.0" hdg="0.0" length="78.5398">
+        <arc curvature="0.02"/>
+      </geometry>
+    </planView>
+    <lanes>
+      <laneSection s="0.0">
+        <center>
+          <lane id="0" type="none" level="false"/>
+        </center>
+        <right>
+          <lane id="-1" type="driving" level="false">
+            <width sOffset="0.0" a="3.5" b="0.0" c="0.0" d="0.0"/>
+          </lane>
+        </right>
+      </laneSection>
+    </lanes>
+  </road>
+</OpenDRIVE>

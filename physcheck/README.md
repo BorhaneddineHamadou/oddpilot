@@ -6,7 +6,7 @@ Pure Python ≥ 3.10; no simulator dependencies; the only runtime dependency is 
 ```bash
 pip install -e .
 physcheck lint suite/ --format sarif -o lint.sarif --fail-on error
-physcheck lint suite/ --map town04.xodr        # L2 map cross-checks + solar_geo
+physcheck lint suite/ --map town04.xodr        # L2 map cross-checks + L3 kinematics
 physcheck rules list --layer L2
 physcheck rules show ATM-001
 ```
@@ -25,6 +25,13 @@ physcheck rules show ATM-001
   scenario's `RoadNetwork/LogicFile`.
 - **Solar ephemeris** (`physcheck.ephemeris`): dependency-free NOAA/Meeus solar position
   (~0.01°), used by the L2 `solar_geo` rules (GEO-001…006).
+- **L3 kinematic feasibility** (`physcheck.engine.plugins.l3_kinematics`, DYN-001…007):
+  motion against tire physics and the map — friction-circle bound v²≤µgr on the road's
+  curvature with µ composed from the L1 environment state (layers compose: 9 m/s²
+  braking is valid on dry asphalt, impossible on a flooded road), lane-change lateral
+  acceleration over the actual lane width, and `FollowTrajectoryAction` feasibility
+  (time monotonicity, teleport segments, friction circle, VRU sustained speeds) on a
+  new trajectory IR that scales to replayed-recording corpora with 10⁵+ vertices.
 - **Rule engine** (`physcheck.engine`): loads YAML rule packs (`catalog/*.yaml`) and Python
   plugin rules (`physcheck.engine.plugins`), evaluates predicates in a safe expression
   language, and emits findings.
@@ -42,24 +49,29 @@ false-negative rate is measured on mutants of the same files, each seeded with
 one certainly-impossible violation (sun above the zenith, 0-dimension bounding
 boxes, spawns 2 km off the map, ...).
 
-**physcheck 0.2.0:**
+**physcheck 0.3.0** (layers L0–L3):
 
 | Corpus (real data) | Files | Tool false positives | Specificity | Conversion-artifact findings¹ | Seeded mutants | Detected | Sensitivity |
 |---|---|---|---|---|---|---|---|
-| corner_case_ndd | 25 | 0 | 100.0% | 0 | 76 | 76 | 100.0% |
+| corner_case_ndd | 25 | 0 | 100.0% | 1 file | 154 | 154 | 100.0% |
 | dlr_ht | 1 | 0 | 100.0% | 0 | — | — | — |
-| dlr_ut | 4 | 0 | 100.0% | 0 | — | — | — |
-| sctrans_real | 1079 | 0 | 100.0% | 1079 files | 1545 | 1545 | 100.0% |
+| dlr_ut | 4 | 0 | 100.0% | 4 files | — | — | — |
+| sctrans_real | 1079 | 0 | 100.0% | 1079 files | 1665 | 1665 | 100.0% |
 
-¹ Error findings manually verified as TRUE defects of the corpus's conversion
-pipeline — CARLA template metadata (maxAcceleration = 200 m/s², copy-pasted
-suns, 5×2 m pedestrian bounding boxes) and under-covering converted maps —
-not tool mistakes. Per-finding triage evidence, corpora provenance and the
-full protocol live in the benchmark repo
+¹ Error findings manually verified as TRUE defects of the corpus's
+conversion/reconstruction pipeline, not tool mistakes: CARLA template metadata
+(maxAcceleration = 200 m/s², copy-pasted suns, 5×2 m pedestrian bounding
+boxes), under-covering converted maps, and — new with L3, which reads the
+declared *motion* — placeholder first-frame teleports and synthetic eased
+stops in RoadRunner exports, and instantaneous speed steps from track
+re-association in infrastructure-sensor replays. Per-finding triage evidence,
+corpora provenance and the full protocol live in the benchmark repo
 ([physcheck-benchmark](https://github.com/BorhaneddineHamadou/physcheck-benchmark)).
-The benchmark's first catch was in physcheck itself: SCTrans's wrong-case
-`<OpenScenario>` root made the parser abort before the physics layers
-(fixed in 0.2.0).
+Each release the benchmark has caught defects in physcheck itself before they
+shipped: SCTrans's wrong-case `<OpenScenario>` root aborting the parser
+(fixed in 0.2.0); L3 mis-attributing curved roads to world-positioned spawns
+at junctions, and phantom accelerations from 0.1 m position quantisation
+(both fixed in 0.3.0, see TRIAGE_v0.3.0.md).
 
 ## Rule YAML schema
 

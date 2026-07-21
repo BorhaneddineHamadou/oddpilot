@@ -169,7 +169,7 @@ def test_lint_l2_clean_fixture(capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_lint_l2_without_map_notes_skip(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["lint", VIOLATING_FILE, "--layers", "L0,L1,L2"]) == 1  # KIN-001 still fires
-    assert "L2 skipped" in capsys.readouterr().err
+    assert "map cross-checks skipped" in capsys.readouterr().err
 
 
 def test_lint_missing_map_exit_three(capsys: pytest.CaptureFixture[str]) -> None:

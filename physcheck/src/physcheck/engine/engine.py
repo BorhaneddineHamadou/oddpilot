@@ -10,6 +10,7 @@ from physcheck.engine.plugins.l0_structure import structural_findings
 from physcheck.engine.plugins.l1_cross import cross_findings
 from physcheck.engine.plugins.l2_map import map_findings
 from physcheck.engine.plugins.l2_solar_geo import solar_geo_findings
+from physcheck.engine.plugins.l3_kinematics import kinematic_findings
 from physcheck.engine.predicate import MissingAttribute, PredicateError
 from physcheck.ir.attributes import Attrs, entity_contexts, scenario_contexts
 from physcheck.ir.model import Scenario
@@ -75,6 +76,8 @@ def lint_scenario(
     if "L2" in layers and xodr_map is not None:
         result.findings.extend(map_findings(scenario, xodr_map))
         result.findings.extend(solar_geo_findings(scenario, xodr_map))
+    if "L3" in layers:
+        result.findings.extend(kinematic_findings(scenario, xodr_map))
 
     active = [r for r in rules if r.layer in layers]
     contexts_by_scope = {

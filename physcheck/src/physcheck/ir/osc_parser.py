@@ -31,6 +31,8 @@ from physcheck.ir.model import (
     SpeedCommand,
     Sun,
     TimeOfDay,
+    TrajectoryFollow,
+    TrajVertex,
     Weather,
     Wind,
 )
@@ -533,6 +535,65 @@ def _parse_routing_actions(container: ET.Element, entity: str, label: str, ctx: 
             sc.position_uses.append(
                 PositionUse(position=pos, entity=entity, label=f"{label}/AcquirePositionAction")
             )
+    for follow in container.iter("FollowTrajectoryAction"):
+        traj = _parse_follow_trajectory(follow, entity, f"{label}/FollowTrajectoryAction", ctx)
+        if traj is not None:
+            sc.trajectories.append(traj)
+
+
+def _parse_follow_trajectory(
+    action: ET.Element, entity: str, label: str, ctx: _Ctx
+) -> TrajectoryFollow | None:
+    """FollowTrajectoryAction: inline Trajectory (OSC 1.0), TrajectoryRef
+    wrapper (OSC >= 1.1), or a CatalogReference resolved via loaded catalogs.
+
+    Vertex world positions are read directly into float-only TrajVertex
+    records — never into Position/PositionUse (a replayed recording has 10^5+
+    vertices; they are motion samples, not placement declarations, D28).
+    """
+    traj_elem = action.find("Trajectory")
+    if traj_elem is None:
+        traj_elem = action.find("TrajectoryRef/Trajectory")
+    if traj_elem is None:
+        ref = action.find("CatalogReference")
+        if ref is None:
+            ref = action.find("TrajectoryRef/CatalogReference")
+        if ref is not None:
+            traj_elem = ctx.catalog_entry(
+                ctx.get_str(ref, "catalogName", label), ctx.get_str(ref, "entryName", label)
+            )
+    if traj_elem is None:
+        return None
+    shape_elem = traj_elem.find("Shape")
+    if shape_elem is None:
+        return None
+    polyline = shape_elem.find("Polyline")
+    if polyline is None:
+        shape = "unknown"
+        for tag in ("Clothoid", "ClothoidSpline", "Nurbs"):
+            if shape_elem.find(tag) is not None:
+                shape = tag.lower()
+                break
+        return TrajectoryFollow(entity=entity, label=label, shape=shape)
+    traj = TrajectoryFollow(entity=entity, label=label, shape="polyline")
+    for vertex in polyline.findall("Vertex"):
+        traj.total_vertices += 1
+        world = vertex.find("Position/WorldPosition")
+        if world is None:
+            continue
+        x = ctx.get_float(world, "x", label)
+        y = ctx.get_float(world, "y", label)
+        if x is None or y is None:
+            continue
+        traj.vertices.append(
+            TrajVertex(
+                time_s=ctx.get_float(vertex, "time", label),
+                x=x,
+                y=y,
+                z=ctx.get_float(world, "z", label),
+            )
+        )
+    return traj
 
 
 def _parse_environment_action(action: ET.Element, ctx: _Ctx, label: str) -> Environment | None:

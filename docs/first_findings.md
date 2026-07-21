@@ -192,3 +192,26 @@ Method note: all findings above were manually verified against the maps (project
 distances, mirrored coordinates, NOAA ephemeris cross-check); the two false-positive
 classes found during verification (attachment idiom, cyclists on sidewalks) were fixed
 before this tally (D23, D27).
+
+## Update 4 (2026-07-21, physcheck 0.3.0): L3 kinematic feasibility scan
+
+Layer L3 (DYN-001..007: friction circle vs map curvature, lane-change lateral
+acceleration, speed-rate traction, trajectory time/teleport/friction/VRU-endurance
+checks) over the same public suites, re-cloned at HEAD (esmini, CARLA scenario_runner)
+and asam-oss/OSC-ALKS-scenarios current logical_scenarios:
+
+- **esmini (79 xosc): 0 L3 findings.** Non-vacuous: 51 timed LaneChangeActions were
+  evaluated by DYN-002 (all plausible durations) and 31 FollowTrajectoryAction
+  polylines parsed into the new trajectory IR.
+- **scenario_runner examples (22 xosc): 0 L3 findings** (suite is speed/route-driven;
+  one distance-dimension lane change, no polyline trajectories).
+- **ALKS (34 xosc): 0 L3 findings** — the false-positive control holds for L3.
+
+Real-data validation of L3 (the sharper test) lives in the benchmark repo: 0 tool FPs
+over 1,109 real files including ~455k timed trajectory vertices of DLR
+infrastructure-sensor replays (188 + 636×4 trajectories, incl. VRUs), and the L3
+mutation operators (TRAJ_TIME_REVERSE, TRAJ_TELEPORT, TRAJ_BRAKE_WALL,
+TRAJ_PED_SPRINT, SPEED_RATE_30) — see physcheck-benchmark results_0.3.0.
+DYN-001 (curve speed) and DYN-002 have no benchmark mutation operator (no corpus
+offers a deterministic curved-spawn / timed-lane-change target); DYN-001 is covered by
+unit tests on a synthetic arc map, DYN-002 by unit tests plus the esmini FP scan above.
