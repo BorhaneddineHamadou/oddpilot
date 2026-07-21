@@ -4,18 +4,39 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "odd-pilot"
-version = "0.0.1.dev0"
-description = "ODD-aware campaign copilot for scenario-based testing of ADS (SKELETON STUB — only physcheck is implemented)"
+version = "0.1.0"
+description = "ODD-aware campaign copilot for scenario-based testing of ADS: lint (physcheck), learned operational model, PWCC adequacy assessment, coverage gaps"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 dependencies = [
     "physcheck",
     "PyYAML>=6.0",
+    "pandas>=2.0",
+    "pgmpy>=0.1.25,<0.2",
+    "numpy>=1.24",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.4", "mypy>=1.10", "openpyxl>=3.1"]
 
 [project.scripts]
 odd-pilot = "oddpilot.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = ["pgmpy.*", "pandas.*"]
+ignore_missing_imports = true

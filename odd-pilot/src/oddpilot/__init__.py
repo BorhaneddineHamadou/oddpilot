@@ -1,3 +1,8 @@
-"""odd-pilot: ODD-aware campaign copilot (skeleton stub; see physcheck for v0.1)."""
+"""odd-pilot: ODD-aware campaign copilot for scenario-based ADS testing.
 
-__version__ = "0.0.1.dev0"
+Implemented: lint (physcheck), model (learned operational BN), assess (PWCC
+adequacy with risk-calibrated stopping rule), gaps (ranked residual mass).
+Roadmap: plan, report, conform, loop.
+"""
+
+__version__ = "0.1.0"

@@ -1,9 +1,62 @@
-# odd-pilot (skeleton stub)
+# odd-pilot
 
-Campaign copilot: operational model (`model`), probability-weighted combinatorial coverage
-and adequacy (`assess`, `gaps`), gap-targeted generation (`plan`), evidence reporting
-(`report`), and loop orchestration (`loop`). See the design brief and the top-level README.
+Campaign copilot for scenario-based ADS testing. One campaign iteration:
+**lint → execute (external) → assess → gaps → plan → lint → …**
 
-**Status: skeleton only.** Every subcommand except `lint` (which delegates to
-[`physcheck`](../physcheck/)) raises `NotImplementedError`. Implementation lands per the
-roadmap (v0.2+).
+Implemented (v0.1.0): `lint` (delegates to [`physcheck`](../physcheck/)),
+`model` (learned operational distribution), `assess` (PWCC adequacy with a
+risk-calibrated stopping rule), `gaps` (ranked coverage gaps — the future
+generator's input). Roadmap: `plan`, `report`, `conform`, `loop`.
+
+```bash
+pip install -e "odd-pilot/[dev]"
+
+# 1. fit the operational model from a profiling table of real operation
+#    (CSV/XLSX, one row per observed scenario, categorical feature_* columns)
+odd-pilot model fit --data profiling.csv -o odd.bn --seed 7
+odd-pilot model info odd.bn
+
+# 2. assess how much expected real-world operation your executed tests
+#    have adequately exercised (run log: feature_* + run_duration seconds)
+odd-pilot assess --model odd.bn --log runs.csv --t 2 3 \
+    --alpha 0.05 --rho 0.01 --epsilon 0.05 0.03
+odd-pilot assess ... --fail-if-inadequate       # exit 2 unless adequate → CI gate
+odd-pilot assess ... --sweep eps=0.01:0.10:0.01 # verdict sensitivity
+odd-pilot assess ... --ledger ledger.csv --json summary.json
+
+# 3. what to test next: insufficient combinations by residual operational mass
+odd-pilot gaps --model odd.bn --log runs.csv --t 2 -n 20
+```
+
+## The method (PWCC)
+
+For every t-way combination c of ODD feature values:
+
+- **P̃(c)** — credited operational mass, estimated by forward-sampling the
+  Bayesian network (each sample credits its K = C(n,t) projections once, so
+  Σ P̃(c) ≈ 1).
+- **E(c)** — exposure: summed duration (hours) of executed runs consistent
+  with c.
+- **E_min(c) = −ln(α)·P̃(c)/ρ** — exposure needed to bound c's residual event
+  rate below the risk budget ρ (events/h) with confidence 1−α.
+- c is *sufficient* iff E(c) ≥ E_min(c); **PWCC_t = Σ_sufficient P̃(c)**;
+  the suite is **adequate** when 1 − PWCC_t < ε — a bound on unassured
+  operational mass usable directly in a SOTIF argument.
+
+Adequacy is a coverage claim, not a fault-absence claim: observed failures
+are triaged separately. Parameter guidance from the PWCC study: α and ρ only
+enter through F = −ln(α)/ρ, and ε is the well-behaved knob — since mass
+fragments as t grows, pass a *shrinking* per-t ε schedule
+(`--epsilon 0.05 0.03 0.02` for `--t 2 3 4`).
+
+The operational model is a discrete BN: structure by Hill-Climb Search
+(BIC, random restarts), parameters by BDeu smoothing so every scenario keeps
+non-zero probability (`model fit` refuses to save a model that fails
+validation). `model` files from the original PWCC research repo load as-is.
+
+## Provenance
+
+Ported from the validated implementation of the PWCC research study
+(training, assessment, and the vectorised credited-mass estimator), and
+cross-validated against it on the study's deepscenario dataset: covered mass
+agrees to < 0.15 % (Monte-Carlo tolerance), identical verdicts.

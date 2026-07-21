@@ -37,6 +37,28 @@ jobs:
             echo "expected planted violations to be found" && exit 1
           fi
 
+  odd-pilot:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install odd-pilot (dev)
+        run: |
+          pip install -e physcheck/
+          pip install -e "odd-pilot/[dev]"
+      - name: Ruff
+        run: ruff check odd-pilot/src odd-pilot/tests
+      - name: Mypy
+        run: mypy --config-file odd-pilot/pyproject.toml odd-pilot/src
+      - name: Pytest
+        run: pytest odd-pilot/tests -q
+
   sarif:
     runs-on: ubuntu-latest
     permissions:
