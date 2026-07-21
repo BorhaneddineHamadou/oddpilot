@@ -2,8 +2,9 @@
 
 Implemented: lint (physcheck), model (learned operational BN), assess (PWCC
 adequacy with risk-calibrated stopping rule), gaps (ranked residual mass),
-plan (gap-targeted generation with the physcheck gate).
-Roadmap: report, conform, loop.
+plan (gap-targeted generation with the physcheck gate), report (SOTIF-style
+evidence artifact).
+Roadmap: conform, loop.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

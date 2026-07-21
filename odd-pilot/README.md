@@ -3,11 +3,11 @@
 Campaign copilot for scenario-based ADS testing. One campaign iteration:
 **lint → execute (external) → assess → gaps → plan → lint → …**
 
-Implemented (v0.2.0): `lint` (delegates to [`physcheck`](../physcheck/)),
+Implemented (v0.3.0): `lint` (delegates to [`physcheck`](../physcheck/)),
 `model` (learned operational distribution), `assess` (PWCC adequacy with a
 risk-calibrated stopping rule), `gaps` (ranked coverage gaps), `plan`
-(gap-targeted generation with the physcheck gate). Roadmap: `report`,
-`conform`, `loop`.
+(gap-targeted generation with the physcheck gate), `report` (SOTIF-style
+evidence artifact). Roadmap: `conform`, `loop`.
 
 ```bash
 pip install -e "odd-pilot/[dev]"
@@ -34,6 +34,13 @@ odd-pilot plan --model odd.bn -a adequacy.json -k 20 \
     --template templates/junction.xosc -o batches/003/
 odd-pilot plan ... --rarity                        # tail-focused (criticality mode)
 odd-pilot plan ... --seed 42 --no-lint             # reproducible; skip the gate
+
+# 5. the safety-case artifact: verdict, SOTIF argument, exposure ledger,
+#    gap tables, lint summary, SHA-256 provenance of every input
+odd-pilot assess ... --json adequacy.json --ledger ledger.csv
+odd-pilot lint suite/ --format sarif -o lint.sarif
+odd-pilot report -a adequacy.json --ledger ledger.csv --lint lint.sarif -o evidence.md
+odd-pilot report ... --pdf                         # rendered PDF (needs pandoc)
 ```
 
 ## Gap-targeted generation (`plan`)

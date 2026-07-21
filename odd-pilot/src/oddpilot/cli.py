@@ -6,9 +6,10 @@
     odd-pilot assess --model odd.bn --log runs.csv --t 2 3 [--epsilon ...]
     odd-pilot gaps   --model odd.bn --log runs.csv --t 2 [-n 20]
     odd-pilot plan   --model odd.bn -a adequacy.json -k 20 --template t.xosc -o batch/
+    odd-pilot report -a adequacy.json --lint lint.sarif -o evidence.md
 
 Campaign loop: lint → execute (external) → assess → gaps → plan → lint → …
-`report`, `conform` and `loop` are roadmap stubs.
+`conform` and `loop` are roadmap stubs.
 
 Exit codes: 0 success; 1 bad input; 2 assessment inadequate (with
 --fail-if-inadequate); 3 usage error.
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
 
     from oddpilot.assess import AssessmentResult
 
-_STUBS = ("init", "config", "report", "conform", "loop")
+_STUBS = ("init", "config", "conform", "loop")
 
 
 def _read_table(path: Path) -> pd.DataFrame:
@@ -252,6 +253,30 @@ def _cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_report(args: argparse.Namespace) -> int:
+    from oddpilot import report as reporting
+
+    markdown = reporting.build_report(
+        args.adequacy,
+        ledger_path=args.ledger,
+        sarif_path=args.lint,
+        title=args.title,
+        top=args.top,
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(markdown)
+    print(f"evidence artifact -> {args.output}")
+    if args.pdf:
+        pdf_path = args.output.with_suffix(".pdf")
+        try:
+            reporting.render_pdf(args.output, pdf_path)
+        except RuntimeError as exc:
+            print(f"odd-pilot report: {exc}", file=sys.stderr)
+            return 1
+        print(f"pdf -> {pdf_path}")
+    return 0
+
+
 def _cmd_gaps(args: argparse.Namespace) -> int:
     results = _run_assessments(args)
     for r in results:
@@ -375,6 +400,22 @@ def build_parser() -> argparse.ArgumentParser:
                         help=argparse.SUPPRESS)
     plan_p.add_argument("--n-samples", type=int, default=50_000,
                         help=argparse.SUPPRESS)
+
+    report_p = sub.add_parser(
+        "report", help="SOTIF-style adequacy & evidence artifact (Markdown/PDF)"
+    )
+    report_p.add_argument("-a", "--adequacy", type=Path, required=True,
+                          help="adequacy JSON from 'assess --json'")
+    report_p.add_argument("--ledger", type=Path, default=None,
+                          help="exposure ledger CSV from 'assess --ledger'")
+    report_p.add_argument("--lint", type=Path, default=None,
+                          help="physcheck SARIF from 'lint --format sarif'")
+    report_p.add_argument("-o", "--output", type=Path, default=Path("evidence.md"))
+    report_p.add_argument("--pdf", action="store_true",
+                          help="also render a PDF (needs pandoc)")
+    report_p.add_argument("--title", default="Test-campaign adequacy evidence")
+    report_p.add_argument("--top", type=int, default=30,
+                          help="rows per table in the artifact")
     return parser
 
 
@@ -408,6 +449,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_gaps(args)
         if args.command == "plan":
             return _cmd_plan(args)
+        if args.command == "report":
+            return _cmd_report(args)
     except (ValueError, FileNotFoundError) as exc:
         print(f"odd-pilot: {exc}", file=sys.stderr)
         return 1
