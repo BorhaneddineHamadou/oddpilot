@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>odd-pilot — trustworthy driving-scenario testing</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1c2733; --muted: #5b6b7b; --accent: #0b6e4f;
+    --accent-soft: #e7f4ef; --card: #f5f7f9; --border: #dde4ea;
+    --bad: #b3261e; --warn: #8a6d00; --code-bg: #10141a; --code-fg: #d7e0ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10141a; --fg: #e4ebf2; --muted: #9aa8b6; --accent: #4cc79a;
+      --accent-soft: #12291f; --card: #171d26; --border: #2a3441;
+      --bad: #ff8a80; --warn: #ffd54f; --code-bg: #0a0d12; --code-fg: #cdd8e3;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 17px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--fg);
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 0 1.2rem 4rem; }
+  header.hero { text-align: center; padding: 4rem 1rem 2.5rem; }
+  .hero h1 { font-size: 2.6rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
+  .hero h1 span { color: var(--accent); }
+  .hero p.tag { font-size: 1.25rem; color: var(--muted); margin: 0 auto; max-width: 40rem; }
+  h2 { font-size: 1.5rem; margin: 3rem 0 .8rem; letter-spacing: -.01em; }
+  h3 { font-size: 1.1rem; margin: 1.6rem 0 .5rem; }
+  p, li { color: var(--fg); }
+  .muted { color: var(--muted); }
+  .stat-row { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0; }
+  .stat {
+    flex: 1 1 150px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.1rem; text-align: center;
+  }
+  .stat b { display: block; font-size: 1.9rem; color: var(--accent); }
+  .stat.bad b { color: var(--bad); }
+  .stat small { color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.1rem 1.2rem;
+  }
+  .card h3 { margin: 0 0 .4rem; color: var(--accent); }
+  .card p { margin: 0; font-size: .95rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .95rem; }
+  th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  pre {
+    background: var(--code-bg); color: var(--code-fg); border-radius: 10px;
+    padding: 1rem 1.2rem; overflow-x: auto; font-size: .88rem; line-height: 1.55;
+  }
+  pre .c { color: #7d8da0; }
+  code { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  p code, li code, td code {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 5px; padding: .06rem .35rem; font-size: .88em;
+  }
+  .verdict { display: inline-block; border-radius: 6px; padding: .05rem .5rem; font-weight: 700; font-size: .85em; }
+  .v-err  { background: var(--bad);  color: var(--bg); }
+  .v-warn { background: var(--warn); color: var(--bg); }
+  .v-ok   { background: var(--accent); color: var(--bg); }
+  .loop {
+    display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+    justify-content: center; margin: 1.4rem 0; font-weight: 600;
+  }
+  .loop .step {
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 999px; padding: .35rem 1rem;
+  }
+  .loop .arrow { color: var(--muted); }
+  footer {
+    border-top: 1px solid var(--border); margin-top: 3.5rem; padding: 1.5rem 0 0;
+    color: var(--muted); font-size: .9rem;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <h1>odd-<span>pilot</span></h1>
+  <p class="tag">Make every driving-simulation test count: check scenarios against
+  the laws of physics before you run them, measure how much of the real world
+  your tests actually cover, and generate exactly the tests you are missing.</p>
+</header>
+
+<h2>The problem, in one number</h2>
+<p>Teams test automated-driving software in simulators, using thousands of
+automatically generated scenarios. We audited the standard generation
+approaches and found that <b>almost every generated scenario is physically
+impossible</b> — heavy rain over a bone-dry road, a blazing sun at midnight,
+braking harder than any tire can grip. A failure found in an impossible world
+tells you nothing about the real one.</p>
+
+<div class="stat-row">
+  <div class="stat bad"><b>98.6%</b><small>of randomly generated scenarios violate physics</small></div>
+  <div class="stat bad"><b>100%</b><small>of adversarially searched scenarios do</small></div>
+  <div class="stat"><b>0%</b><small>when odd-pilot generates and checks them</small></div>
+</div>
+
+<h2>What odd-pilot does</h2>
+<div class="cards">
+  <div class="card"><h3>1 · Check</h3>
+    <p>The built-in linter, <b>physcheck</b>, reads each scenario file and flags
+    everything physically impossible or inconsistent — with a literature
+    citation attached to every rule, like a spell-checker for physics.</p></div>
+  <div class="card"><h3>2 · Measure</h3>
+    <p><b>assess</b> compares what you have tested against how the real world
+    actually behaves (learned from recorded driving data) and answers one
+    question: <i>have we tested enough, and if not, what is missing?</i></p></div>
+  <div class="card"><h3>3 · Generate</h3>
+    <p><b>plan</b> creates the next batch of scenarios aimed precisely at the
+    gaps, keeps them realistic, and physics-checks every one before it ever
+    reaches your simulator.</p></div>
+</div>
+
+<p style="margin-top:1.2rem">One campaign iteration looks like this — and the
+<code>loop</code> command can drive the whole cycle for you:</p>
+<div class="loop">
+  <span class="step">check</span><span class="arrow">→</span>
+  <span class="step">run in simulator</span><span class="arrow">→</span>
+  <span class="step">measure coverage</span><span class="arrow">→</span>
+  <span class="step">generate the missing tests</span><span class="arrow">→</span>
+  <span class="step">repeat until enough</span>
+</div>
+
+<h2>What gets checked</h2>
+<p>physcheck looks at a scenario through seven independent lenses, from simple
+to sophisticated. You can use any subset; nothing else is required.</p>
+<table>
+  <tr><th>Layer</th><th>Plain-language question it asks</th></tr>
+  <tr><td>L0 · Format</td><td>Is the file well-formed, are values inside their legal ranges?</td></tr>
+  <tr><td>L1 · Weather physics</td><td>Do the conditions make sense together — can it rain from a clear sky, snow in summer heat, fog with 50&nbsp;km visibility?</td></tr>
+  <tr><td>L2 · Map</td><td>Do the cars start on real roads of the map, is the sun where it could ever be in that sky, are speed limits respected?</td></tr>
+  <tr><td>L3 · Motion</td><td>Could real tires do this — the braking, the cornering speed, the lane change? Do recorded trajectories teleport?</td></tr>
+  <tr><td>L4 · Story logic</td><td>Can every scripted event actually happen, or does the scenario contradict its own timeline?</td></tr>
+  <tr><td>L5 · Operating domain</td><td>Does the scenario stay inside the conditions your system is declared to handle (its ODD)?</td></tr>
+  <tr><td>L6 · Realism</td><td>Even if possible — does this combination ever actually occur in real driving?</td></tr>
+</table>
+
+<h2>Reading the results</h2>
+<table>
+  <tr><th>You see</th><th>It means</th></tr>
+  <tr><td><span class="verdict v-err">ERROR</span></td><td>Physically impossible or contradictory as written — fix it before trusting any result from it.</td></tr>
+  <tr><td><span class="verdict v-warn">WARNING</span></td><td>Suspicious or extremely rare — worth a deliberate look, never blocks you.</td></tr>
+  <tr><td><span class="verdict v-ok">ADEQUATE</span></td><td>Your executed tests sufficiently cover the expected real-world operation — the campaign may stop.</td></tr>
+  <tr><td><span class="verdict v-err">INADEQUATE</span></td><td>Coverage gaps remain; <code>gaps</code> lists them, <code>plan</code> closes them.</td></tr>
+  <tr><td><code>IN / OUT / UNDECLARED</code></td><td>Whether a scenario stays inside your declared operating domain, leaves it, or doesn't say.</td></tr>
+</table>
+<p class="muted">Every finding names its rule, explains itself in a sentence, and
+cites the physical literature or standard it is based on. Reports come out as
+readable tables, web pages, or CI-ready formats.</p>
+
+<h2>Get started</h2>
+<pre><code><span class="c"># install (Python 3.10+)</span>
+pip install -e physcheck/ -e odd-pilot/
+
+<span class="c"># 1 · check a folder of scenarios — the only command many teams need</span>
+odd-pilot lint my_scenarios/
+
+<span class="c"># 2 · learn how the real world behaves from recorded driving data (CSV)</span>
+odd-pilot model fit --data driving_records.csv -o world.bn
+
+<span class="c"># 3 · have we tested enough?</span>
+odd-pilot assess --model world.bn --log test_runs.csv --t 2
+
+<span class="c"># 4 · what's missing, and generate 20 realistic tests to fix it</span>
+odd-pilot gaps --model world.bn --log test_runs.csv --t 2
+odd-pilot assess ... --json adequacy.json
+odd-pilot plan --model world.bn -a adequacy.json -k 20 \
+    --template my_template.xosc -o next_batch/
+
+<span class="c"># 5 · one evidence document for the safety case</span>
+odd-pilot report -a adequacy.json -o evidence.md</code></pre>
+
+<h2>Can I trust it?</h2>
+<ul>
+  <li><b>Validated on real driving data:</b> across 1,109 scenario files derived
+  from real recorded traffic (drone, camera and roadside-sensor datasets), the
+  checker raised <b>zero false alarms</b> — while detecting all 1,819
+  deliberately injected impossibilities.</li>
+  <li><b>Every rule is cited:</b> all 157 checks carry a reference to primary
+  literature or standards — tire friction handbooks, atmospheric optics, solar
+  ephemerides, ISO&nbsp;21448/34503.</li>
+  <li><b>It audits its authors too:</b> during development the checker caught
+  several bugs in our own "carefully crafted" scenarios — which is rather the
+  point.</li>
+</ul>
+
+<h2>Standards &amp; formats</h2>
+<p>Scenarios: ASAM OpenSCENARIO 1.0–1.3 · Maps: ASAM OpenDRIVE ·
+ODD definitions: YAML with OpenODD-style include/exclude conditions ·
+Reports: table, HTML, JSON, SARIF, Markdown/PDF evidence artifacts.
+Works with any simulator — odd-pilot never touches one directly.</p>
+
+<footer>
+  <p><a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a> ·
+  <a href="https://github.com/BorhaneddineHamadou/physcheck-benchmark">Validation benchmark</a> ·
+  Apache-2.0 licensed · Built on the PWCC probability-weighted coverage methodology.</p>
+</footer>
+
+</main>
+</body>
+</html>
