@@ -7,11 +7,12 @@
     odd-pilot gaps   --model odd.bn --log runs.csv --t 2 [-n 20]
     odd-pilot plan   --model odd.bn -a adequacy.json -k 20 --template t.xosc -o batch/
     odd-pilot report -a adequacy.json --lint lint.sarif -o evidence.md
+    odd-pilot conform suite/ --odd odd.yaml       per-attribute in/out/undeclared
     odd-pilot loop   --model odd.bn --log runs.csv --template t.xosc \\
                      --exec "./run_sim.sh {scenario}" --until-adequate --max-iter 10
 
 Campaign loop: lint → execute (external) → assess → gaps → plan → lint → …
-`conform` is a roadmap stub.
+`init`/`config` scaffolding are roadmap stubs.
 
 Exit codes: 0 success; 1 bad input; 2 assessment inadequate (with
 --fail-if-inadequate); 3 usage error.
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 
     from oddpilot.assess import AssessmentResult
 
-_STUBS = ("init", "config", "conform")
+_STUBS = ("init", "config")
 
 
 def _read_table(path: Path) -> pd.DataFrame:
@@ -253,6 +254,40 @@ def _cmd_plan(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     return 0
+
+
+def _cmd_conform(args: argparse.Namespace) -> int:
+    from physcheck.ir.osc_parser import parse_file
+    from physcheck.odd import conformance, load_odd
+
+    odd = load_odd(args.odd)
+    for issue in odd.issues:
+        print(f"odd-pilot conform: odd definition: {issue}", file=sys.stderr)
+    files: list[Path] = []
+    for raw in args.paths:
+        p = Path(raw)
+        files.extend(sorted(p.rglob("*.xosc")) if p.is_dir() else [p])
+    if not files:
+        raise ValueError("no .xosc files found")
+    any_out = False
+    for path in files:
+        rows = conformance(parse_file(path), odd)
+        worst = "in"
+        for _label, _attr, verdict, _value in rows:
+            if verdict == "out":
+                worst = "out"
+                break
+            if verdict == "undeclared":
+                worst = "undeclared"
+        any_out |= worst == "out"
+        print(f"{path}: {worst.upper()}  (odd '{odd.name}')")
+        if args.verbose or worst != "in":
+            for label, attr, verdict, value in rows:
+                if verdict == "in" and not args.verbose:
+                    continue
+                shown = "—" if value is None else value
+                print(f"    {verdict.upper():<11} {attr} = {shown}  [{label}]")
+    return 1 if any_out else 0
 
 
 def _cmd_loop(args: argparse.Namespace) -> int:
@@ -482,6 +517,15 @@ def build_parser() -> argparse.ArgumentParser:
     loop_p.add_argument("--no-lint", action="store_true")
     loop_p.add_argument("--duration-col", default="run_duration")
     loop_p.add_argument("--n-samples", type=int, default=50_000)
+
+    conform_p = sub.add_parser(
+        "conform", help="L5 alone: ODD conformance verdicts per scenario"
+    )
+    conform_p.add_argument("paths", nargs="+", help=".xosc files or directories")
+    conform_p.add_argument("--odd", type=Path, required=True,
+                           help="ODD definition YAML (include/exclude conditions)")
+    conform_p.add_argument("-v", "--verbose", action="store_true",
+                           help="also list attributes that are IN")
     return parser
 
 
@@ -519,6 +563,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_report(args)
         if args.command == "loop":
             return _cmd_loop(args)
+        if args.command == "conform":
+            return _cmd_conform(args)
     except (ValueError, FileNotFoundError) as exc:
         print(f"odd-pilot: {exc}", file=sys.stderr)
         return 1

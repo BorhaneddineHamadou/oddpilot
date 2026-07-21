@@ -41,6 +41,7 @@ pip install -e physcheck/
 physcheck lint examples/                     # lint a directory of .xosc files (layers L0–L1)
 physcheck lint suite/ --map town04.xodr      # enable L2 map cross-checks + L3 kinematics
 physcheck lint suite/ --layers L0,L1,L2,L3   # maps via each scenario's RoadNetwork/LogicFile
+physcheck lint suite/ --odd odd.yaml         # L5 ODD conformance (in/out/undeclared)
 physcheck lint s.xosc --format sarif -o l.sarif   # CI-ready output
 physcheck lint suite/ --fail-on error        # exit 1 on any error → CI quality gate
 physcheck lint s.xosc --explain ATM-001      # rule text, citation, offending values
@@ -78,7 +79,7 @@ road-user biomechanics, regulations). The research behind it is documented in:
 | L2 | Map cross-checks (OpenDRIVE: roads/lanes exist, drivable spawns, interpenetration, route connectivity, speed limits) + `solar_geo` ephemeris pack | ✅ v0.2 |
 | L3 | Kinematic & dynamic feasibility: friction circle v²≤µgr vs map curvature with µ from the L1 environment, lane-change lateral acceleration, trajectory continuity/teleports, VRU sustained speeds | ✅ v0.3 |
 | L4 | Storyboard logic (static analysis) | roadmap |
-| L5 | ODD conformance (ASAM OpenODD) | roadmap |
+| L5 | ODD conformance: scenario attributes vs a YAML ODD definition (OpenODD include/exclude semantics); verdicts in / out / undeclared | ✅ v0.4 |
 | L6 | Statistical plausibility (learned operational model) | roadmap |
 
 Map-independent kinematic bounds (VRU speeds, performance envelopes) are checkable from the

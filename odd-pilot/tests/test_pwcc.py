@@ -257,4 +257,4 @@ def test_cli_per_t_epsilon_mismatch(
 
 
 def test_cli_stub_commands_signal() -> None:
-    assert main(["conform"]) == 3
+    assert main(["init"]) == 3

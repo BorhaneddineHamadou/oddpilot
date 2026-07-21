@@ -255,3 +255,15 @@ defect as phantom sustained acceleration (observed with corner_case_ndd's
 placeholder-first-frame exports). Instantaneous speed *steps* below the teleport
 ceiling (e.g. DLR-UT track re-associations, Δv 7 m/s in one 50 ms sample) are NOT
 breaks — they genuinely violate the friction circle and stay DYN-006 findings.
+
+**D34 — ODD definition dialect (L5, ODD-000..002).** The `--odd` YAML is keyed by
+physcheck's canonical attribute names (docs/attribute_space.md) and implements
+OpenODD's include/exclude condition semantics: a declared value is IN iff it satisfies
+the attribute's `include` condition (enum list, {min,max} range, or list of ranges —
+when one is given) and hits no `exclude` condition; OUT otherwise; UNDECLARED when the
+scenario does not declare the attribute — conformance cannot be established for
+unspecified conditions, so ODD-002 is a warning while out-of-ODD (ODD-001) is an
+error. `entity.*` constraints evaluate per concrete entity; all others per declared
+environment state. The dialect deliberately targets the SEMANTICS of ASAM OpenODD
+1.0.0 rather than claiming schema conformance — a converter from the ASAM YAML mapping
+can be layered on once the spec artifact is available for field-name validation.

@@ -3,12 +3,12 @@
 Campaign copilot for scenario-based ADS testing. One campaign iteration:
 **lint → execute (external) → assess → gaps → plan → lint → …**
 
-Implemented (v0.4.0): `lint` (delegates to [`physcheck`](../physcheck/)),
+Implemented (v0.5.0): `lint` (delegates to [`physcheck`](../physcheck/)),
 `model` (learned operational distribution), `assess` (PWCC adequacy with a
 risk-calibrated stopping rule), `gaps` (ranked coverage gaps), `plan`
 (gap-targeted generation with the physcheck gate), `report` (SOTIF-style
-evidence artifact), `loop` (executor-driven orchestration to adequacy).
-Roadmap: `conform`.
+evidence artifact), `loop` (executor-driven orchestration to adequacy), `conform`
+(per-scenario ODD verdicts). Roadmap: `init`/`config` scaffolding.
 
 ```bash
 pip install -e "odd-pilot/[dev]"

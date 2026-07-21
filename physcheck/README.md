@@ -7,6 +7,7 @@ Pure Python ≥ 3.10; no simulator dependencies; the only runtime dependency is 
 pip install -e .
 physcheck lint suite/ --format sarif -o lint.sarif --fail-on error
 physcheck lint suite/ --map town04.xodr        # L2 map cross-checks + L3 kinematics
+physcheck lint suite/ --odd odd.yaml           # L5 ODD conformance (in/out/undeclared)
 physcheck rules list --layer L2
 physcheck rules show ATM-001
 ```
@@ -25,6 +26,9 @@ physcheck rules show ATM-001
   scenario's `RoadNetwork/LogicFile`.
 - **Solar ephemeris** (`physcheck.ephemeris`): dependency-free NOAA/Meeus solar position
   (~0.01°), used by the L2 `solar_geo` rules (GEO-001…006).
+- **L5 ODD conformance** (`physcheck.odd` + `l5_odd`, ODD-000…002): scenario
+  attributes against a YAML ODD definition with OpenODD include/exclude condition
+  semantics — out-of-ODD is an error, ODD-constrained-but-undeclared a warning (D34).
 - **L3 kinematic feasibility** (`physcheck.engine.plugins.l3_kinematics`, DYN-001…007):
   motion against tire physics and the map — friction-circle bound v²≤µgr on the road's
   curvature with µ composed from the L1 environment state (layers compose: 9 m/s²

@@ -56,7 +56,8 @@ def _build_parser() -> _Parser:
         help="OpenDRIVE map for L2/L3 cross-checks (enables L2+L3; without --map, "
         "L2/L3 resolve each scenario's RoadNetwork/LogicFile)",
     )
-    lint.add_argument("--odd", dest="odd_file", help="OpenODD definition (L5, not in v0.1)")
+    lint.add_argument("--odd", dest="odd_file",
+                      help="ODD definition YAML for L5 conformance (enables L5)")
     lint.add_argument("--rules", action="append", default=[], help="additional rule pack YAML")
     lint.add_argument("--layers", default=_DEFAULT_LAYERS, help="comma list (default L0,L1)")
     lint.add_argument(
@@ -111,20 +112,23 @@ def _collect_files(paths: list[str]) -> list[Path] | None:
 
 
 def _cmd_lint(args: argparse.Namespace) -> int:
-    if args.odd_file:
-        print(
-            "physcheck: note: L5 ODD conformance is not implemented yet; ignoring",
-            file=sys.stderr,
-        )
-
     layers = {part.strip() for part in args.layers.split(",") if part.strip()}
     if args.map_file:
         layers.update(("L2", "L3"))
+    odd_def = None
+    if args.odd_file:
+        if not Path(args.odd_file).is_file():
+            print(f"physcheck: odd definition not found: {args.odd_file}", file=sys.stderr)
+            return 3
+        from physcheck.odd import load_odd
+
+        odd_def = load_odd(args.odd_file)
+        layers.add("L5")
     unknown = layers - {f"L{i}" for i in range(7)}
     if unknown:
         print(f"physcheck: unknown layers: {sorted(unknown)}", file=sys.stderr)
         return 3
-    not_shipped = layers - {"L0", "L1", "L2", "L3"}
+    not_shipped = layers - {"L0", "L1", "L2", "L3", "L5"}
     if not_shipped:
         print(
             f"physcheck: note: layers {sorted(not_shipped)} have no rules yet",
@@ -157,7 +161,9 @@ def _cmd_lint(args: argparse.Namespace) -> int:
             xodr_map = _map_for(scenario, path, args.map_file, map_cache)
             if xodr_map is None:
                 unmapped += 1
-        results.append(lint_scenario(scenario, rules, layers, xodr_map=xodr_map))
+        results.append(
+            lint_scenario(scenario, rules, layers, xodr_map=xodr_map, odd=odd_def)
+        )
     if unmapped:
         print(
             f"physcheck: note: map cross-checks skipped for {unmapped} file(s) with "

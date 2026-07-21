@@ -11,9 +11,11 @@ from physcheck.engine.plugins.l1_cross import cross_findings
 from physcheck.engine.plugins.l2_map import map_findings
 from physcheck.engine.plugins.l2_solar_geo import solar_geo_findings
 from physcheck.engine.plugins.l3_kinematics import kinematic_findings
+from physcheck.engine.plugins.l5_odd import odd_findings
 from physcheck.engine.predicate import MissingAttribute, PredicateError
 from physcheck.ir.attributes import Attrs, entity_contexts, scenario_contexts
 from physcheck.ir.model import Scenario
+from physcheck.odd import OddDefinition
 from physcheck.xodr.model import XodrMap
 
 __all__ = ["SEVERITY_ORDER", "Finding", "LintResult", "lint_scenario"]
@@ -65,6 +67,7 @@ def lint_scenario(
     rules: list[RuleSpec],
     layers: set[str],
     xodr_map: XodrMap | None = None,
+    odd: OddDefinition | None = None,
 ) -> LintResult:
     result = LintResult(file=scenario.source_path, document_kind=scenario.document_kind)
     if "L0" in layers:
@@ -78,6 +81,8 @@ def lint_scenario(
         result.findings.extend(solar_geo_findings(scenario, xodr_map))
     if "L3" in layers:
         result.findings.extend(kinematic_findings(scenario, xodr_map))
+    if "L5" in layers and odd is not None:
+        result.findings.extend(odd_findings(scenario, odd))
 
     active = [r for r in rules if r.layer in layers]
     contexts_by_scope = {

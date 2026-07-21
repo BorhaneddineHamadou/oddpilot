@@ -6,6 +6,7 @@ from physcheck.engine.plugins import (
     l2_map,
     l2_solar_geo,
     l3_kinematics,
+    l5_odd,
 )
 
 #: id -> (layer, severity, title, citation) for all builtin plugin rules.
@@ -15,6 +16,7 @@ PLUGIN_RULES: dict[str, tuple[str, str, str, str]] = {
     **l2_map.PLUGIN_RULES,
     **l2_solar_geo.PLUGIN_RULES,
     **l3_kinematics.PLUGIN_RULES,
+    **l5_odd.PLUGIN_RULES,
 }
 
 __all__ = ["PLUGIN_RULES"]
