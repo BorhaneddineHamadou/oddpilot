@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "odd-pilot"
-version = "0.1.0"
-description = "ODD-aware campaign copilot for scenario-based testing of ADS: lint (physcheck), learned operational model, PWCC adequacy assessment, coverage gaps"
+version = "0.2.0"
+description = "ODD-aware campaign copilot for scenario-based testing of ADS: lint (physcheck), learned operational model, PWCC adequacy assessment, coverage gaps, gap-targeted generation"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

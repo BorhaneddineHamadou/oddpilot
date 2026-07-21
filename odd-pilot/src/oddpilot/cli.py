@@ -5,9 +5,10 @@
     odd-pilot model info odd.bn
     odd-pilot assess --model odd.bn --log runs.csv --t 2 3 [--epsilon ...]
     odd-pilot gaps   --model odd.bn --log runs.csv --t 2 [-n 20]
+    odd-pilot plan   --model odd.bn -a adequacy.json -k 20 --template t.xosc -o batch/
 
 Campaign loop: lint → execute (external) → assess → gaps → plan → lint → …
-`plan`, `report`, `conform` and `loop` are roadmap stubs.
+`report`, `conform` and `loop` are roadmap stubs.
 
 Exit codes: 0 success; 1 bad input; 2 assessment inadequate (with
 --fail-if-inadequate); 3 usage error.
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
     from oddpilot.assess import AssessmentResult
 
-_STUBS = ("init", "config", "plan", "report", "conform", "loop")
+_STUBS = ("init", "config", "report", "conform", "loop")
 
 
 def _read_table(path: Path) -> pd.DataFrame:
@@ -166,7 +167,22 @@ def _cmd_assess(args: argparse.Namespace) -> int:
         payload = {
             "model": str(args.model),
             "log": str(args.log),
-            "results": [r.summary() for r in results],
+            "results": [
+                {
+                    **r.summary(),
+                    "gaps": [
+                        {
+                            "combo": [list(pair) for pair in g["combo"]],
+                            "combination": g["combination"],
+                            "residual_mass": g["residual_mass"],
+                            "actual_exposure_h": g["actual_exposure_h"],
+                            "required_exposure_h": g["required_exposure_h"],
+                        }
+                        for g in r.gaps()
+                    ],
+                }
+                for r in results
+            ],
         }
         Path(args.json).write_text(json.dumps(payload, indent=2))
         print(f"summary json -> {args.json}")
@@ -180,6 +196,59 @@ def _cmd_assess(args: argparse.Namespace) -> int:
 
     if args.fail_if_inadequate and not all(r.is_adequate for r in results):
         return 2
+    return 0
+
+
+def _cmd_plan(args: argparse.Namespace) -> int:
+    from oddpilot import opmodel
+    from oddpilot import plan as planner
+
+    model = opmodel.load(args.model)
+    if args.adequacy is not None:
+        payload = json.loads(Path(args.adequacy).read_text())
+        gaps = planner.gaps_from_json(
+            payload, t=args.t[0] if args.t is not None else None
+        )
+    else:
+        if args.log is None:
+            raise ValueError("plan needs either -a adequacy.json or --log runs.csv")
+        if args.t is not None and len(args.t) > 1:
+            raise ValueError("plan targets one t at a time")
+        args.t = args.t or [2]
+        results = _run_assessments(args)
+        gaps = results[0].gaps()
+    if not gaps:
+        print("no gaps — the assessed suite is fully sufficient; nothing to plan")
+        return 0
+    if args.template is None and not args.no_lint:
+        print(
+            "odd-pilot plan: note: no --template given — emitting plan.csv only; "
+            "the physcheck gate needs instantiated scenarios (--template)",
+            file=sys.stderr,
+        )
+    result = planner.plan(
+        model,
+        gaps,
+        args.batch,
+        out_dir=args.out,
+        template=args.template,
+        lint=not args.no_lint,
+        rarity=args.rarity,
+        pool_size=args.pool,
+        seed=args.seed,
+    )
+    print(
+        f"planned {len(result.planned)} scenario(s) -> {args.out} "
+        f"({result.n_discarded} candidate(s) discarded by the physcheck gate)"
+    )
+    for combo, mass, missing in result.unfillable:
+        combo_str = " & ".join(f"{k}={v}" for k, v in combo)
+        print(
+            f"  UNFILLABLE: {combo_str} (residual {mass:.6f}) — {missing} "
+            "scenario(s) short: every remaining candidate violates physics "
+            "or the pool is exhausted",
+            file=sys.stderr,
+        )
     return 0
 
 
@@ -272,6 +341,40 @@ def build_parser() -> argparse.ArgumentParser:
     _add_assess_args(gaps_p)
     gaps_p.add_argument("-n", "--top", type=int, default=20,
                         help="show the top N gaps")
+
+    plan_p = sub.add_parser(
+        "plan", help="generate the next batch targeting the measured gaps"
+    )
+    plan_p.add_argument("--model", type=Path, required=True,
+                        help="operational model (.bn)")
+    plan_p.add_argument("-a", "--adequacy", type=Path, default=None,
+                        help="adequacy JSON from 'assess --json' (has the gaps)")
+    plan_p.add_argument("--log", type=Path, default=None,
+                        help="execution log — recompute gaps instead of -a")
+    plan_p.add_argument("--t", type=int, nargs="+", default=None, metavar="T",
+                        help="t to target (default: first inadequate in -a, else 2)")
+    plan_p.add_argument("-k", "--batch", type=int, default=10,
+                        help="number of scenarios to plan")
+    plan_p.add_argument("-o", "--out", type=Path, default=Path("batch"),
+                        help="output directory (plan.csv + scenarios)")
+    plan_p.add_argument("--template", type=Path, default=None,
+                        help="OpenSCENARIO template whose ParameterDeclarations "
+                             "receive the feature values")
+    plan_p.add_argument("--rarity", action="store_true",
+                        help="prioritise tail conditions (criticality mode)")
+    plan_p.add_argument("--no-lint", action="store_true",
+                        help="skip the built-in physcheck gate")
+    plan_p.add_argument("--pool", type=int, default=100,
+                        help="conditional candidate pool size per gap")
+    plan_p.add_argument("--seed", type=int, default=None)
+    plan_p.add_argument("--alpha", type=float, default=0.05, help=argparse.SUPPRESS)
+    plan_p.add_argument("--rho", type=float, default=0.01, help=argparse.SUPPRESS)
+    plan_p.add_argument("--epsilon", type=float, nargs="+", default=[0.05],
+                        help=argparse.SUPPRESS)
+    plan_p.add_argument("--duration-col", default="run_duration",
+                        help=argparse.SUPPRESS)
+    plan_p.add_argument("--n-samples", type=int, default=50_000,
+                        help=argparse.SUPPRESS)
     return parser
 
 
@@ -303,6 +406,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_assess(args)
         if args.command == "gaps":
             return _cmd_gaps(args)
+        if args.command == "plan":
+            return _cmd_plan(args)
     except (ValueError, FileNotFoundError) as exc:
         print(f"odd-pilot: {exc}", file=sys.stderr)
         return 1

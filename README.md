@@ -24,7 +24,7 @@ This is a monorepo hosting two Python distributions:
 | Package | Status | Contents |
 |---|---|---|
 | [`physcheck/`](physcheck/) | **v0.3 — implemented** | Standalone layered plausibility linter for ASAM OpenSCENARIO 1.x: typed Scenario IR, YAML rule catalog with full literature citations, OpenDRIVE map cross-checks (L2) incl. solar ephemeris, kinematic feasibility (L3) incl. trajectory physics, `lint` / `rules` CLI, SARIF/HTML/JSON output. |
-| [`odd-pilot/`](odd-pilot/) | **v0.1 — model/assess/gaps implemented** | Campaign copilot: learned operational model (BN), PWCC probability-weighted coverage & risk-calibrated adequacy (`assess`, exit-code CI gate, ε-sweep), ranked coverage gaps. `plan`/`report`/`loop` on the roadmap. Depends on `physcheck`. |
+| [`odd-pilot/`](odd-pilot/) | **v0.2 — model/assess/gaps/plan implemented** | Campaign copilot: learned operational model (BN), PWCC probability-weighted coverage & risk-calibrated adequacy (`assess`, exit-code CI gate, ε-sweep), ranked coverage gaps, and gap-targeted generation (`plan`: conditional BN sampling, max–min diversity, `--rarity` mode, physcheck-gated instantiation). `report`/`loop` on the roadmap. Depends on `physcheck`. |
 
 ## Quick start (physcheck)
 

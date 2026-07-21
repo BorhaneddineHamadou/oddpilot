@@ -3,10 +3,11 @@
 Campaign copilot for scenario-based ADS testing. One campaign iteration:
 **lint → execute (external) → assess → gaps → plan → lint → …**
 
-Implemented (v0.1.0): `lint` (delegates to [`physcheck`](../physcheck/)),
+Implemented (v0.2.0): `lint` (delegates to [`physcheck`](../physcheck/)),
 `model` (learned operational distribution), `assess` (PWCC adequacy with a
-risk-calibrated stopping rule), `gaps` (ranked coverage gaps — the future
-generator's input). Roadmap: `plan`, `report`, `conform`, `loop`.
+risk-calibrated stopping rule), `gaps` (ranked coverage gaps), `plan`
+(gap-targeted generation with the physcheck gate). Roadmap: `report`,
+`conform`, `loop`.
 
 ```bash
 pip install -e "odd-pilot/[dev]"
@@ -26,7 +27,30 @@ odd-pilot assess ... --ledger ledger.csv --json summary.json
 
 # 3. what to test next: insufficient combinations by residual operational mass
 odd-pilot gaps --model odd.bn --log runs.csv --t 2 -n 20
+
+# 4. generate the next batch, targeting the measured gaps
+odd-pilot assess ... --json adequacy.json          # gaps travel in the JSON
+odd-pilot plan --model odd.bn -a adequacy.json -k 20 \
+    --template templates/junction.xosc -o batches/003/
+odd-pilot plan ... --rarity                        # tail-focused (criticality mode)
+odd-pilot plan ... --seed 42 --no-lint             # reproducible; skip the gate
 ```
+
+## Gap-targeted generation (`plan`)
+
+For each insufficient combination, highest residual mass first (budget `-k`
+split proportionally to mass): condition the BN and draw a candidate pool
+from P(X | c) — candidates satisfy the target condition while inheriting
+naturalistic dependencies; select by max–min diversity in normalised
+parameter space (`--rarity` inverts the pool ordering toward tail
+conditions); instantiate each pick into the `--template`'s
+`ParameterDeclarations` (feature `feature_x` fills the parameter named `x`);
+and lint every instantiated scenario with physcheck L0–L3, discarding and
+replacing violators — rarity-tail sampling stretches soft physical
+dependencies, so linting inside generation is mandatory. Gaps whose whole
+pool violates are reported as UNFILLABLE, never silently dropped. Output:
+`plan.csv` (one row per scenario: target combination, residual mass, all
+feature values, file) plus the instantiated `.xosc` files.
 
 ## The method (PWCC)
 
