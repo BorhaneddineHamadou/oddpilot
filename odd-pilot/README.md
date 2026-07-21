@@ -3,11 +3,12 @@
 Campaign copilot for scenario-based ADS testing. One campaign iteration:
 **lint → execute (external) → assess → gaps → plan → lint → …**
 
-Implemented (v0.3.0): `lint` (delegates to [`physcheck`](../physcheck/)),
+Implemented (v0.4.0): `lint` (delegates to [`physcheck`](../physcheck/)),
 `model` (learned operational distribution), `assess` (PWCC adequacy with a
 risk-calibrated stopping rule), `gaps` (ranked coverage gaps), `plan`
 (gap-targeted generation with the physcheck gate), `report` (SOTIF-style
-evidence artifact). Roadmap: `conform`, `loop`.
+evidence artifact), `loop` (executor-driven orchestration to adequacy).
+Roadmap: `conform`.
 
 ```bash
 pip install -e "odd-pilot/[dev]"
@@ -41,7 +42,20 @@ odd-pilot assess ... --json adequacy.json --ledger ledger.csv
 odd-pilot lint suite/ --format sarif -o lint.sarif
 odd-pilot report -a adequacy.json --ledger ledger.csv --lint lint.sarif -o evidence.md
 odd-pilot report ... --pdf                         # rendered PDF (needs pandoc)
+
+# 6. or let odd-pilot drive the whole cycle through your simulator:
+#    plan -> lint -> execute -> append runs.csv -> assess, until adequate
+odd-pilot loop --model odd.bn --log runs.csv --template templates/junction.xosc \
+    --exec "./run_carla.sh {scenario}" --until-adequate --max-iter 10
 ```
+
+`loop` substitutes `{scenario}` per planned file and appends one run-log row
+per successful execution (features + duration). Duration is the executor's
+wall-clock time unless it prints `run_duration=<seconds>` on stdout — print
+the *simulated* time there when the two diverge. Failed executions (non-zero
+exit, `--timeout`) earn no exposure credit; an iteration whose executions all
+fail aborts the loop. With `--until-adequate` the exit code is the campaign
+gate: 0 adequate, 2 not.
 
 ## Gap-targeted generation (`plan`)
 

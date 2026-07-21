@@ -7,9 +7,11 @@
     odd-pilot gaps   --model odd.bn --log runs.csv --t 2 [-n 20]
     odd-pilot plan   --model odd.bn -a adequacy.json -k 20 --template t.xosc -o batch/
     odd-pilot report -a adequacy.json --lint lint.sarif -o evidence.md
+    odd-pilot loop   --model odd.bn --log runs.csv --template t.xosc \\
+                     --exec "./run_sim.sh {scenario}" --until-adequate --max-iter 10
 
 Campaign loop: lint → execute (external) → assess → gaps → plan → lint → …
-`conform` and `loop` are roadmap stubs.
+`conform` is a roadmap stub.
 
 Exit codes: 0 success; 1 bad input; 2 assessment inadequate (with
 --fail-if-inadequate); 3 usage error.
@@ -28,7 +30,7 @@ if TYPE_CHECKING:
 
     from oddpilot.assess import AssessmentResult
 
-_STUBS = ("init", "config", "conform", "loop")
+_STUBS = ("init", "config", "conform")
 
 
 def _read_table(path: Path) -> pd.DataFrame:
@@ -253,6 +255,39 @@ def _cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_loop(args: argparse.Namespace) -> int:
+    from oddpilot import opmodel
+    from oddpilot.loop import run_loop
+
+    if "{scenario}" not in args.exec_cmd:
+        raise ValueError("--exec command must contain the {scenario} placeholder")
+    model = opmodel.load(args.model)
+    outcome = run_loop(
+        model,
+        args.log,
+        args.exec_cmd,
+        args.template,
+        t=args.t[0] if args.t else 2,
+        alpha=args.alpha,
+        rho=args.rho,
+        epsilon=args.epsilon[0],
+        k=args.batch,
+        max_iter=args.max_iter,
+        batches_dir=args.batches_dir,
+        pool_size=args.pool,
+        seed=args.seed,
+        rarity=args.rarity,
+        lint=not args.no_lint,
+        duration_col=args.duration_col,
+        n_samples=args.n_samples,
+        timeout=args.timeout,
+    )
+    print(f"loop finished: {outcome.stop_reason}")
+    if args.until_adequate and not outcome.adequate:
+        return 2
+    return 0
+
+
 def _cmd_report(args: argparse.Namespace) -> int:
     from oddpilot import report as reporting
 
@@ -416,6 +451,37 @@ def build_parser() -> argparse.ArgumentParser:
     report_p.add_argument("--title", default="Test-campaign adequacy evidence")
     report_p.add_argument("--top", type=int, default=30,
                           help="rows per table in the artifact")
+
+    loop_p = sub.add_parser(
+        "loop", help="drive plan -> execute -> append -> assess to adequacy"
+    )
+    loop_p.add_argument("--model", type=Path, required=True,
+                        help="operational model (.bn)")
+    loop_p.add_argument("--log", type=Path, required=True,
+                        help="run log CSV (created if missing; appended per run)")
+    loop_p.add_argument("--exec", dest="exec_cmd", required=True,
+                        metavar="CMD",
+                        help="executor command; {scenario} is replaced per file")
+    loop_p.add_argument("--template", type=Path, required=True,
+                        help="OpenSCENARIO template for planned scenarios")
+    loop_p.add_argument("--t", type=int, nargs="+", default=[2], metavar="T")
+    loop_p.add_argument("--alpha", type=float, default=0.05)
+    loop_p.add_argument("--rho", type=float, default=0.01)
+    loop_p.add_argument("--epsilon", type=float, nargs="+", default=[0.05])
+    loop_p.add_argument("-k", "--batch", type=int, default=10,
+                        help="scenarios per iteration")
+    loop_p.add_argument("--until-adequate", action="store_true",
+                        help="exit 2 if the loop ends without adequacy")
+    loop_p.add_argument("--max-iter", type=int, default=10)
+    loop_p.add_argument("--batches-dir", type=Path, default=Path("batches"))
+    loop_p.add_argument("--timeout", type=float, default=None,
+                        help="seconds allowed per execution")
+    loop_p.add_argument("--pool", type=int, default=100)
+    loop_p.add_argument("--seed", type=int, default=None)
+    loop_p.add_argument("--rarity", action="store_true")
+    loop_p.add_argument("--no-lint", action="store_true")
+    loop_p.add_argument("--duration-col", default="run_duration")
+    loop_p.add_argument("--n-samples", type=int, default=50_000)
     return parser
 
 
@@ -451,6 +517,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_plan(args)
         if args.command == "report":
             return _cmd_report(args)
+        if args.command == "loop":
+            return _cmd_loop(args)
     except (ValueError, FileNotFoundError) as exc:
         print(f"odd-pilot: {exc}", file=sys.stderr)
         return 1
