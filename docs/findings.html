@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real violations in public OpenSCENARIO suites — odd-pilot docs</title>
+<style>
+  :root {
+    --bg:#ffffff; --fg:#1c2733; --muted:#5b6b7b; --accent:#0b6e4f;
+    --accent-soft:#e7f4ef; --card:#f5f7f9; --border:#dde4ea;
+    --bad:#b3261e; --warnc:#8a6d00; --code-bg:#10141a; --code-fg:#d7e0ea;
+    --sidebar-w:250px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#10141a; --fg:#e4ebf2; --muted:#9aa8b6; --accent:#4cc79a;
+      --accent-soft:#12291f; --card:#171d26; --border:#2a3441;
+      --bad:#ff8a80; --warnc:#ffd54f; --code-bg:#0a0d12; --code-fg:#cdd8e3;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;
+         background:var(--bg); color:var(--fg); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  nav.side {
+    position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w);
+    overflow-y:auto; background:var(--card); border-right:1px solid var(--border);
+    padding:1.2rem 1rem 2rem; font-size:.88rem;
+  }
+  nav.side .brand { font-weight:800; font-size:1.15rem; margin-bottom:.2rem; }
+  nav.side .brand span { color:var(--accent); }
+  nav.side .ver { color:var(--muted); margin-bottom:1rem; }
+  nav.side h5 { margin:1.1rem 0 .3rem; color:var(--muted);
+                text-transform:uppercase; font-size:.72rem; letter-spacing:.06em; }
+  nav.side a { display:block; padding:.18rem .4rem; border-radius:6px; color:var(--fg); }
+  nav.side a:hover { background:var(--accent-soft); text-decoration:none; }
+  main { margin-left:var(--sidebar-w); max-width:900px; padding:2.5rem 2.2rem 5rem; }
+  @media (max-width:900px) {
+    nav.side { position:static; width:auto; border-right:none;
+               border-bottom:1px solid var(--border); }
+    main { margin-left:0; padding:1.5rem 1.2rem 4rem; }
+  }
+  h1 { font-size:1.9rem; margin:.2rem 0 .5rem; letter-spacing:-.02em; }
+  h2 { font-size:1.35rem; margin:2.6rem 0 .6rem; }
+  .muted { color:var(--muted); }
+  pre { background:var(--code-bg); color:var(--code-fg); border-radius:10px;
+        padding: .8rem 1rem; overflow-x:auto; font-size:.82rem; line-height:1.5; margin:.6rem 0; }
+  code { font-family:ui-monospace,"SF Mono",Consolas,monospace; }
+  p code, li code { background:var(--card); border:1px solid var(--border);
+    border-radius:5px; padding:.05rem .35rem; font-size:.86em; }
+  .ex { background:var(--card); border:1px solid var(--border); border-radius:12px;
+        padding:1rem 1.2rem; margin:1.2rem 0; }
+  .ex h3 { margin:0 0 .2rem; font-size:1.02rem; }
+  .ex .src { font-size:.82rem; color:var(--muted); margin:0 0 .5rem; }
+  .finding { border-left:4px solid var(--bad); background:var(--bg);
+             border-radius:6px; padding:.55rem .8rem; margin:.6rem 0; font-size:.9rem; }
+  .finding.warn { border-left-color:var(--warnc); }
+  .finding b.rid { font-family:ui-monospace,Consolas,monospace; }
+  .sev { border-radius:6px; padding:.02rem .45rem; font-size:.72rem; font-weight:700;
+         text-transform:uppercase; color:var(--bg); margin-left:.4rem; }
+  .sev.err { background:var(--bad); } .sev.warn { background:var(--warnc); }
+  .why { font-size:.92rem; margin:.5rem 0 0; }
+  .why b { color:var(--accent); }
+  table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }
+  th, td { text-align:left; padding:.5rem .65rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--muted); }
+  .clean { border-left:4px solid var(--accent); background:var(--card);
+           border-radius:6px; padding:.7rem 1rem; margin:1rem 0; }
+</style>
+</head>
+<body>
+<nav class="side">
+  <div class="brand">odd-<span>pilot</span> docs</div>
+  <div class="ver">field findings</div>
+  <h5>Site</h5>
+  <a href="index.html">← Overview</a>
+  <a href="physcheck.html">physcheck: every rule</a>
+  <h5>This page</h5>
+  <a href="#method">What we scanned</a>
+  <a href="#srunner">CARLA scenario_runner</a>
+  <a href="#esmini">esmini</a>
+  <a href="#alks">ASAM ALKS (control)</a>
+  <a href="#realdata">Real-data corpora</a>
+  <a href="#takeaways">Takeaways</a>
+</nav>
+<main>
+
+<h1>What physcheck finds in public OpenSCENARIO files</h1>
+<p>Real, reproducible examples: we ran physcheck over the example suites that
+ship with the two most widely used open scenario engines — CARLA's
+<b>scenario_runner</b> and <b>esmini</b> — plus ASAM's official
+<b>ALKS regulatory scenarios</b>. Below, each example shows the exact lines
+from the public file, the finding physcheck raises, and why it matters.</p>
+<p class="muted"><b>To be fair to these projects:</b> these are demo/example
+files, written to exercise engine features — not production test campaigns.
+They run perfectly well in their engines. That is precisely the point: an
+engine executes whatever it is given; nothing in the toolchain ever asks
+whether the declared world is physically possible. These files are what
+scenario authors copy from — and their placeholder physics silently travels
+into real campaigns.</p>
+
+<h2 id="method">What we scanned</h2>
+<table>
+<tr><th>Suite</th><th>Files</th><th>Command</th></tr>
+<tr><td><a href="https://github.com/carla-simulator/scenario_runner">scenario_runner</a> examples</td><td>22 .xosc</td>
+    <td><code>physcheck lint srunner/examples --layers L0,L1,L3,L4</code></td></tr>
+<tr><td><a href="https://github.com/esmini/esmini">esmini</a> resources</td><td>79 .xosc</td>
+    <td><code>physcheck lint resources/xosc --layers L0,L1,L2,L3,L4</code> (maps auto-resolved from each file's RoadNetwork)</td></tr>
+<tr><td><a href="https://github.com/asam-oss/OSC-ALKS-scenarios">ASAM OSC-ALKS-scenarios</a></td><td>34 .xosc</td>
+    <td>same layers — the false-positive control</td></tr>
+</table>
+
+<h2 id="srunner">CARLA scenario_runner examples</h2>
+
+<div class="ex">
+  <h3>The 200 m/s² template — 20 g of acceleration, copy-pasted everywhere</h3>
+  <p class="src">e.g. <a href="https://github.com/carla-simulator/scenario_runner/blob/master/srunner/examples/ChangingWeather.xosc">ChangingWeather.xosc</a> — the same Performance line appears in most files of the suite (38 findings)</p>
+  <pre><code>&lt;Performance maxSpeed="69.444" maxAcceleration="200" maxDeceleration="10.0"/&gt;</code></pre>
+  <div class="finding"><b class="rid">KIN-018</b><span class="sev err">error</span>
+    Vehicle 'hero' declares maxAcceleration = 200.0 m/s²: the fastest production EVs
+    peak at ~1.2–1.3 g (~12–13 m/s²) transiently; street-tire traction sustains ~1 g.</div>
+  <div class="finding"><b class="rid">FRI-023</b><span class="sev err">error</span>
+    … traction on the declared surface (frictionScaleFactor = 1.0) bounds acceleration
+    to µ·g even for all-wheel drive.</div>
+  <p class="why"><b>Why it matters:</b> 200 m/s² is a placeholder that became a
+  template. Any test whose outcome depends on the adversary's acceleration
+  envelope (cut-ins, overtakes) is exercised against a vehicle 20× beyond
+  physics — failures and passes alike say nothing about real traffic. The same
+  placeholder value dominates converted datasets too (we found it in all 1,079
+  SCTrans real-data conversions).</p>
+</div>
+
+<div class="ex">
+  <h3>Rain from a cloud-free sky, under a midnight sun</h3>
+  <p class="src"><a href="https://github.com/carla-simulator/scenario_runner/blob/master/srunner/examples/ChangingWeather.xosc">ChangingWeather.xosc</a>, second environment state</p>
+  <pre><code>&lt;TimeOfDay animation="true" dateTime="2020-01-01T22:00:00"/&gt;
+&lt;Weather cloudState="free"&gt;
+  &lt;Sun intensity="0.05" azimuth="0" elevation="1.31"/&gt;
+  &lt;Fog visualRange="100000.0"/&gt;
+  &lt;Precipitation precipitationType="rain" intensity="0.9"/&gt;
+&lt;/Weather&gt;</code></pre>
+  <div class="finding"><b class="rid">PRE-012</b><span class="sev err">error</span>
+    rain declared with a cloud-free sky: precipitation is by definition a hydrometeor
+    falling from a cloud.</div>
+  <div class="finding warn"><b class="rid">SOL-007</b><span class="sev warn">warning</span>
+    TimeOfDay = 22:00 with sun elevation 1.31 rad (75°): a sun above the horizon at
+    local night is possible only poleward of the polar circles.</div>
+  <div class="finding warn"><b class="rid">ATM-001</b><span class="sev warn">warning</span>
+    A Fog element declared with visualRange = 100 000 m — "dense fog with unlimited
+    visibility", the canonical clear-sky idiom that should be an omitted element.</div>
+  <p class="why"><b>Why it matters:</b> one copy-pasted environment block carries
+  three independent impossibilities. A perception stack "tested in rain" here
+  sees rain streaks lit by a full daytime sun with no clouds — the sensor
+  physics of that world exist in no deployment region.</p>
+</div>
+
+<div class="ex">
+  <h3>A pedestrian the size of a car</h3>
+  <p class="src"><a href="https://github.com/carla-simulator/scenario_runner/blob/master/srunner/examples/PedestrianCrossingFront.xosc">PedestrianCrossingFront.xosc</a> (same box on the cyclist in CyclistCrossing.xosc)</p>
+  <pre><code>&lt;Pedestrian model="walker.pedestrian.0001" mass="90.0" ...&gt;
+  &lt;BoundingBox&gt;
+    &lt;Center x="1.5" y="0.0" z="0.9"/&gt;
+    &lt;Dimensions width="2.1" length="4.5" height="1.8"/&gt;
+  &lt;/BoundingBox&gt;</code></pre>
+  <div class="finding warn"><b class="rid">ENT-010</b><span class="sev warn">warning</span>
+    Pedestrian bounding box 4.5 × 2.1 × 1.8 m exceeds the adult standing envelope
+    (~0.5 m depth × ~0.6 m shoulder width).</div>
+  <p class="why"><b>Why it matters:</b> a vehicle bounding box pasted onto a
+  pedestrian. Everything downstream that uses the box — collision verdicts,
+  time-to-collision, "near miss" metrics — is computed against a walker with a
+  car's footprint: crossing tests pass or fail for the wrong reason.</p>
+</div>
+
+<div class="ex">
+  <h3>Zero-mass adversary, sprinting at world-class pace</h3>
+  <p class="src"><a href="https://github.com/carla-simulator/scenario_runner/blob/master/srunner/examples/CatalogExample.xosc">CatalogExample.xosc</a> (entity resolved from its vehicle catalog)</p>
+  <div class="finding"><b class="rid">SCH-114</b><span class="sev err">error</span>
+    Entity 'adversary' mass = 0.0 kg: mass must be positive.</div>
+  <div class="finding warn"><b class="rid">KIN-002</b><span class="sev warn">warning</span>
+    Pedestrian 'adversary' reaches 10.0 m/s: only trained sprinters exceed ~8 m/s,
+    and only for tens of seconds.</div>
+  <p class="why"><b>Why it matters:</b> found <i>through</i> the catalog — physcheck
+  resolves CatalogReferences the way an engine would, so placeholder physics
+  hiding in shared catalogs is caught once, at the source.</p>
+</div>
+
+<div class="ex">
+  <h3>Scenarios with no ending</h3>
+  <p class="src">ChangingWeather.xosc, LaneOffsetActionExample.xosc, OscControllerExample.xosc</p>
+  <div class="finding warn"><b class="rid">STB-006</b><span class="sev warn">warning</span>
+    The storyboard has no StopTrigger condition: the scenario declares no termination
+    and runs until the engine gives up.</div>
+  <p class="why"><b>Why it matters:</b> in batch campaigns these files rely on
+  external timeouts; their "duration" is an accident of engine configuration —
+  which corrupts any exposure-time bookkeeping built on the logs.</p>
+</div>
+
+<h2 id="esmini">esmini resources</h2>
+
+<div class="ex">
+  <h3>A declared sun 74° away from where the sun could be</h3>
+  <p class="src"><a href="https://github.com/esmini/esmini/blob/master/resources/xosc/cut-in_environment.xosc">cut-in_environment.xosc</a> — caught by the L2 ephemeris against the map's geodetic anchor (37.35° N, −122.09° E)</p>
+  <pre><code>&lt;TimeOfDay animation="true" dateTime="2025-10-15T12:00:00.012+00:00"/&gt;
+&lt;Weather fractionalCloudCover="sixOktas" temperature="278.15" atmosphericPressure="100500"&gt;
+  &lt;Sun azimuth="2.35" illuminance="80000" elevation="0.4"/&gt;</code></pre>
+  <div class="finding"><b class="rid">GEO-005</b><span class="sev err">error</span>
+    Declared sun (elevation 22.9° / azimuth 134.6°) is 73.7° away from the ephemeris
+    sun (elevation −27.8°) for 2025-10-15T12:00:00<b>+00:00</b> at the map origin —
+    12:00 <i>UTC</i> is 4 a.m. local in California: deep night.</div>
+  <p class="why"><b>Why it matters:</b> the author meant local noon and wrote
+  <code>+00:00</code>. Shadows, glare and camera exposure in that scene belong to a
+  time that contradicts the file's own clock — exactly the timezone trap that
+  silently skews perception testing. (An adjacent environment in the same file
+  also sets atmospheric pressure to 10 000 Pa — one missing zero, one tenth of
+  sea-level pressure: <b class="rid">SCH-109</b>.)</p>
+</div>
+
+<div class="ex">
+  <h3>Two vehicles occupying the same point in space</h3>
+  <p class="src"><a href="https://github.com/esmini/esmini/blob/master/resources/xosc/long_dist_action_with_jerk.xosc">long_dist_action_with_jerk.xosc</a> (also trailers.xosc: tractor and trailers stacked at one pose)</p>
+  <pre><code>&lt;LanePosition roadId="1" laneId="-1" s="20.0" offset="0.0"/&gt;   &lt;!-- Ego --&gt;
+&lt;LanePosition roadId="1" laneId="-1" s="20.0" offset="0.0"/&gt;   &lt;!-- ego jerk --&gt;</code></pre>
+  <div class="finding"><b class="rid">MAP-005</b><span class="sev err">error</span>
+    Entities 'Ego' and 'ego jerk' interpenetrate at their initial positions
+    ((20.0, −1.5) vs (20.0, −1.5)): rigid bodies cannot overlap at t=0.</div>
+  <p class="why"><b>Why it matters:</b> engines resolve the overlap by engine-specific
+  magic (spawn nudging, hitch coupling) that is invisible in the file — the same
+  scenario produces different worlds in different simulators.</p>
+</div>
+
+<div class="ex">
+  <h3>Driving at 216 % of the road's own speed limit</h3>
+  <p class="src"><a href="https://github.com/esmini/esmini/blob/master/resources/xosc/slow-lead-vehicle.xosc">slow-lead-vehicle.xosc</a> — the limit read from the scenario's own OpenDRIVE map</p>
+  <pre><code>&lt;AbsoluteTargetSpeed value="30"/&gt;   &lt;!-- road 1 speed record: 50 km/h --&gt;</code></pre>
+  <div class="finding warn"><b class="rid">MAP-007</b><span class="sev warn">warning</span>
+    'Ego' is commanded to 30.0 m/s but road '1' has a 13.9 m/s speed limit (216 %).
+    Deliberate speeding should be an explicit scenario parameter, not an accident.</div>
+  <p class="why"><b>Why it matters:</b> nothing wrong with testing speeding — if you
+  meant to. Undeclared, it shifts every downstream metric (TTC, stopping
+  distance) into a regime the scenario title never admits.</p>
+</div>
+
+<div class="ex">
+  <h3>Two speed controllers fighting over one vehicle</h3>
+  <p class="src"><a href="https://github.com/esmini/esmini/blob/master/resources/xosc/parking_demo.xosc">parking_demo.xosc</a> — found by the L4 storyboard analysis</p>
+  <div class="finding"><b class="rid">STB-003</b><span class="sev err">error</span>
+    Event 'Target5UnparkEvent' starts 2 longitudinal actions simultaneously
+    (ReverseActionToEstablishDirection, ReverseAction): they contend for the same
+    control channel on the same actor.</div>
+  <p class="why"><b>Why it matters:</b> which action wins is an engine implementation
+  detail. The declared behaviour is ambiguous — a portability bug that only shows
+  up when the suite moves to another simulator.</p>
+</div>
+
+<div class="ex">
+  <h3>Speed changed at 15 m/s² — beyond any production car</h3>
+  <p class="src"><a href="https://github.com/esmini/esmini/blob/master/resources/xosc/routing-test.xosc">routing-test.xosc</a></p>
+  <pre><code>&lt;SpeedActionDynamics dynamicsShape="linear" value="-15.0" dynamicsDimension="rate"/&gt;</code></pre>
+  <div class="finding"><b class="rid">KIN-024</b><span class="sev err">error</span>
+    Entity 'Ego' commands a speed change at 15.0 m/s²: beyond the ~13 m/s² record
+    launch acceleration and the ~11.8 m/s² braking ceiling.</div>
+  <p class="why"><b>Why it matters:</b> a demo convenience ("get to the next waypoint
+  fast") that, copied into a braking test, quietly assumes a car that out-brakes
+  physics.</p>
+</div>
+
+<h2 id="alks">ASAM ALKS scenarios: the control</h2>
+<div class="clean"><b>0 findings across 34 files, at every layer.</b>
+The regulatory ALKS suite — carefully authored against UN R157 — comes out
+clean on L0–L5. This is the false-positive control we re-run on every release:
+a linter that flagged well-authored regulatory scenarios would be measuring its
+own noise.</div>
+
+<h2 id="realdata">And in converted real-data corpora</h2>
+<p>The same checks over 1,109 scenario files <i>derived from real recorded
+driving</i> (drone, camera and roadside-sensor datasets) raised <b>zero false
+alarms about the driving itself</b> — but exposed the <b>conversion pipelines</b>:
+the CARLA 200 m/s² template pasted into every converted file, 5 × 2 m
+pedestrian bounding boxes, copy-pasted suns, converted maps that no longer
+cover their own trajectories, placeholder first trajectory frames that teleport
+11 m in 40 ms, and tracker glitches that step speed by 7 m/s in one sample.
+Full per-finding evidence in the
+<a href="https://github.com/BorhaneddineHamadou/physcheck-benchmark">benchmark repository</a>.</p>
+
+<h2 id="takeaways">Takeaways for practitioners</h2>
+<table>
+<tr><th>Violation class you will meet</th><th>Typical rules</th><th>What to do</th></tr>
+<tr><td>Placeholder performance values (200 m/s², mass 0) travelling via templates and catalogs</td>
+    <td>KIN-018, FRI-023, SCH-114</td>
+    <td>Lint catalogs and templates first — one fix cleans every derived scenario.</td></tr>
+<tr><td>Copy-pasted environment blocks (sun/time/cloud/rain contradictions)</td>
+    <td>PRE-012, SOL-007, GEO-005, ATM-001</td>
+    <td>Author environments per scenario; declare timezone-aware times deliberately.</td></tr>
+<tr><td>Bounding boxes pasted across categories</td><td>ENT-010, ENT-011</td>
+    <td>Keep per-category boxes in the catalog; never copy a vehicle entry for a VRU.</td></tr>
+<tr><td>Engine-specific idioms that don't transport (same-pose spawns, competing actions)</td>
+    <td>MAP-005, STB-003</td>
+    <td>Treat these as portability debt even if your engine tolerates them today.</td></tr>
+<tr><td>Undeclared regime shifts (speeding, missing termination)</td><td>MAP-007, STB-006</td>
+    <td>Make them explicit parameters so the campaign log means what it says.</td></tr>
+</table>
+<p class="muted">Every rule referenced here is documented — condition, basis and
+source — in the <a href="physcheck.html">rule reference</a>.</p>
+
+<footer style="border-top:1px solid var(--border); margin-top:3rem; padding-top:1.2rem;"
+        class="muted">
+<p>Findings reproduced with physcheck 0.5.0 against the public suites at their
+current heads (July 2026); first documented in
+<a href="https://github.com/BorhaneddineHamadou/oddpilot/blob/main/docs/first_findings.md">docs/first_findings.md</a>.
+<a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a> · Apache-2.0.</p>
+</footer>
+</main>
+</body>
+</html>

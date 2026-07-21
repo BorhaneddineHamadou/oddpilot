@@ -344,6 +344,7 @@ TEMPLATE = """<!DOCTYPE html>
   <div class="ver">physcheck {version}</div>
   <h5>Site</h5>
   <a href="index.html">← Overview</a>
+  <a href="findings.html">Violations in public suites</a>
   <h5>physcheck</h5>
   <a href="#what">What it is</a>
   <a href="#how">How it is implemented</a>

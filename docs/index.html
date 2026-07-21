@@ -114,6 +114,7 @@
   <a href="#trust">Can I trust it?</a>
   <h5>Deep dives</h5>
   <a class="strong" href="physcheck.html">physcheck: every rule, explained →</a>
+  <a class="strong" href="findings.html">Violations found in public suites →</a>
   <h5>Project</h5>
   <a href="https://github.com/BorhaneddineHamadou/oddpilot">Source on GitHub</a>
   <a href="https://github.com/BorhaneddineHamadou/physcheck-benchmark">Validation benchmark</a>
@@ -227,6 +228,10 @@ odd-pilot report -a adequacy.json -o evidence.md</code></pre>
   <li><b>Every rule is cited:</b> all 157 checks carry a reference to primary
   literature or standards — tire friction handbooks, atmospheric optics, solar
   ephemerides, ISO&nbsp;21448/34503.</li>
+  <li><b>It finds real problems in the wild:</b> the example suites of the two
+  most-used open scenario engines carry placeholder physics (200 m/s²
+  acceleration templates, car-sized pedestrians, rain from cloud-free skies) —
+  <a href="findings.html">see the concrete violations, file by file</a>.</li>
   <li><b>It audits its authors too:</b> during development the checker caught
   several bugs in our own "carefully crafted" scenarios — which is rather the
   point.</li>
